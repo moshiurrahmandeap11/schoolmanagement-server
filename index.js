@@ -62,6 +62,7 @@ app.get("/", (req, res) => {
       students: "api/students",
       classes: "api/classes",
       totalSeats: "api/total-seats",
+      classRooms: "api/classrooms",
       health: "/health",
       testDb: "/api/test-db",
       uploads: "/api/uploads"
@@ -85,6 +86,7 @@ async function run() {
     const studentsCollection = db.collection("students");
     const classesCollection = db.collection("classes");
     const totalSeatCollection = db.collection("total-seat");
+    const classRoomsCollection = db.collection("class-rooms");
 
     // Mount routes with collections - Fixed way
     const usersRouter = require("./routes/users")(usersCollection);
@@ -96,6 +98,7 @@ async function run() {
     const studentsRouter = require("./routes/students")(studentsCollection);
     const classesRouter = require("./routes/classes")(classesCollection);
     const totalSeatRouter = require("./routes/total-seats")(totalSeatCollection);
+    const classRoomsRouter = require("./routes/classrooms")(classRoomsCollection);
 
     app.use("/api/users", usersRouter);
     app.use("/api/banners", bannersRouter);
@@ -106,6 +109,7 @@ async function run() {
     app.use("/api/students", studentsRouter);
     app.use("/api/classes", classesRouter);
     app.use("/api/total-seats", totalSeatRouter);
+    app.use("/api/classrooms", classRoomsRouter);
 
     // Health check route
     app.get("/health", (req, res) => {
