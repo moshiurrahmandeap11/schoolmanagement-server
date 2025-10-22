@@ -58,6 +58,10 @@ app.get("/", (req, res) => {
       sliders: "/api/sliders",
       recently: "/api/recently",
       schoolhistory: "api/school-history",
+      speech: "api/speech",
+      students: "api/students",
+      classes: "api/classes",
+      totalSeats: "api/total-seats",
       health: "/health",
       testDb: "/api/test-db",
       uploads: "/api/uploads"
@@ -76,7 +80,11 @@ async function run() {
     const bannersCollection = db.collection("banners");
     const slidersCollection = db.collection("sliders");
     const recentlyCollection = db.collection("recently");
-    const schoolHistoryCollection = db.collection("school-History")
+    const schoolHistoryCollection = db.collection("school-History");
+    const speechCollection = db.collection("speech");
+    const studentsCollection = db.collection("students");
+    const classesCollection = db.collection("classes");
+    const totalSeatCollection = db.collection("total-seat");
 
     // Mount routes with collections - Fixed way
     const usersRouter = require("./routes/users")(usersCollection);
@@ -84,12 +92,20 @@ async function run() {
     const slidersRouter = require("./routes/sliders")(slidersCollection);
     const recentlyRouter = require("./routes/recently") (recentlyCollection);
     const schoolHistoryRouter = require("./routes/school-history") (schoolHistoryCollection)
+    const speechRouter = require("./routes/speech") (speechCollection);
+    const studentsRouter = require("./routes/students")(studentsCollection);
+    const classesRouter = require("./routes/classes")(classesCollection);
+    const totalSeatRouter = require("./routes/total-seats")(totalSeatCollection);
 
     app.use("/api/users", usersRouter);
     app.use("/api/banners", bannersRouter);
     app.use("/api/sliders", slidersRouter);
     app.use("/api/recently", recentlyRouter);
     app.use("/api/school-history", schoolHistoryRouter);
+    app.use("/api/speeches", speechRouter);
+    app.use("/api/students", studentsRouter);
+    app.use("/api/classes", classesRouter);
+    app.use("/api/total-seats", totalSeatRouter);
 
     // Health check route
     app.get("/health", (req, res) => {
