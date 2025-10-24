@@ -63,6 +63,11 @@ app.get("/", (req, res) => {
       classes: "api/classes",
       totalSeats: "api/total-seats",
       classRooms: "api/classrooms",
+      admissionInfo: "api/admission-info",
+      admissionForm: "api/admission-form",
+      teachersList: "api/teachers-list",
+      workersList: "api/workers-list",
+      headmasterList: "api/headmasters-list",
       health: "/health",
       testDb: "/api/test-db",
       uploads: "/api/uploads"
@@ -87,6 +92,11 @@ async function run() {
     const classesCollection = db.collection("classes");
     const totalSeatCollection = db.collection("total-seat");
     const classRoomsCollection = db.collection("class-rooms");
+    const admissionInfoCollection = db.collection("admission-info");
+    const admissionFormCollection = db.collection("admission-form");
+    const teachersListCollection = db.collection("teacher-list");
+    const workersListCollection = db.collection("workers-list");
+    const headmastersCollection = db.collection("headmasters-list");
 
     // Mount routes with collections - Fixed way
     const usersRouter = require("./routes/users")(usersCollection);
@@ -99,6 +109,11 @@ async function run() {
     const classesRouter = require("./routes/classes")(classesCollection);
     const totalSeatRouter = require("./routes/total-seats")(totalSeatCollection);
     const classRoomsRouter = require("./routes/classrooms")(classRoomsCollection);
+    const admissionInfoRouter = require("./routes/admission-info") (admissionInfoCollection);
+    const admissionFormRouter = require("./routes/admission-form") (admissionFormCollection);
+    const teachersListRouter = require("./routes/teachers-list") (teachersListCollection);
+    const workersListRouter = require("./routes/workers-list") (workersListCollection);
+    const headmasterListRouter = require("./routes/headmaster-list") (headmastersCollection);
 
     app.use("/api/users", usersRouter);
     app.use("/api/banners", bannersRouter);
@@ -110,6 +125,11 @@ async function run() {
     app.use("/api/classes", classesRouter);
     app.use("/api/total-seats", totalSeatRouter);
     app.use("/api/classrooms", classRoomsRouter);
+    app.use("/api/admission-info", admissionInfoRouter);
+    app.use("/api/admission-form", admissionFormRouter);
+    app.use("/api/teacher-list", teachersListRouter);
+    app.use("/api/workers-list", workersListRouter);
+    app.use("/api/headmasters-list", headmasterListRouter);
 
     // Health check route
     app.get("/health", (req, res) => {
