@@ -68,6 +68,8 @@ app.get("/", (req, res) => {
       teachersList: "api/teachers-list",
       workersList: "api/workers-list",
       headmasterList: "api/headmasters-list",
+      holidays: "api/holiday",
+      circular: "api/circular",
       health: "/health",
       testDb: "/api/test-db",
       uploads: "/api/uploads"
@@ -97,6 +99,8 @@ async function run() {
     const teachersListCollection = db.collection("teacher-list");
     const workersListCollection = db.collection("workers-list");
     const headmastersCollection = db.collection("headmasters-list");
+    const holidayCollection = db.collection("holiday");
+    const circularCollection = db.collection("circular");
 
     // Mount routes with collections - Fixed way
     const usersRouter = require("./routes/users")(usersCollection);
@@ -114,6 +118,8 @@ async function run() {
     const teachersListRouter = require("./routes/teachers-list") (teachersListCollection);
     const workersListRouter = require("./routes/workers-list") (workersListCollection);
     const headmasterListRouter = require("./routes/headmaster-list") (headmastersCollection);
+    const holidayRouter = require("./routes/holiday") (holidayCollection);
+    const circularRouter = require("./routes/circular") (circularCollection);
 
     app.use("/api/users", usersRouter);
     app.use("/api/banners", bannersRouter);
@@ -130,6 +136,8 @@ async function run() {
     app.use("/api/teacher-list", teachersListRouter);
     app.use("/api/workers-list", workersListRouter);
     app.use("/api/headmasters-list", headmasterListRouter);
+    app.use("/api/holiday", holidayRouter);
+    app.use("/api/circulars", circularRouter);
 
     // Health check route
     app.get("/health", (req, res) => {
