@@ -72,6 +72,8 @@ app.get("/", (req, res) => {
       circular: "api/circular",
       gallary: "api/gallery",
       blogs: "api/blogs",
+      managing: "api/managing-committee",
+      areaHistory: "api/area-history",
       health: "/health",
       testDb: "/api/test-db",
       uploads: "/api/uploads"
@@ -105,6 +107,8 @@ async function run() {
     const circularCollection = db.collection("circular");
     const galleryCollection = db.collection("gallary");
     const blogsCollection = db.collection("blogs");
+    const managingCollection = db.collection("managing");
+    const areaHistoryCollection = db.collection("area-history");
 
     // Mount routes with collections - Fixed way
     const usersRouter = require("./routes/users")(usersCollection);
@@ -126,6 +130,8 @@ async function run() {
     const circularRouter = require("./routes/circular") (circularCollection);
     const gallaryRouter = require("./routes/gallary") (galleryCollection);
     const blogsRouter = require("./routes/blogs") (blogsCollection);
+    const managingRouter = require("./routes/managing") (managingCollection);
+    const areaHistoryRouter = require("./routes/area-history") (areaHistoryCollection);
 
     app.use("/api/users", usersRouter);
     app.use("/api/banners", bannersRouter);
@@ -146,6 +152,8 @@ async function run() {
     app.use("/api/circulars", circularRouter);
     app.use("/api/gallery", gallaryRouter);
     app.use("/api/blogs", blogsRouter);
+    app.use("/api/managing-committee", managingRouter);
+    app.use("/api/area-history", areaHistoryRouter);
 
     // Health check route
     app.get("/health", (req, res) => {
