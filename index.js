@@ -74,6 +74,9 @@ app.get("/", (req, res) => {
       blogs: "api/blogs",
       managing: "api/managing-committee",
       areaHistory: "api/area-history",
+      contactInfo: "api/contact-info",
+      notices: "api/notice",
+      routine: "api/routine",
       health: "/health",
       testDb: "/api/test-db",
       uploads: "/api/uploads"
@@ -109,6 +112,9 @@ async function run() {
     const blogsCollection = db.collection("blogs");
     const managingCollection = db.collection("managing");
     const areaHistoryCollection = db.collection("area-history");
+    const contactInfoCollection = db.collection("contact-info");
+    const noticeCollection = db.collection("notice");
+    const routineCollection = db.collection("routine");
 
     // Mount routes with collections - Fixed way
     const usersRouter = require("./routes/users")(usersCollection);
@@ -132,6 +138,9 @@ async function run() {
     const blogsRouter = require("./routes/blogs") (blogsCollection);
     const managingRouter = require("./routes/managing") (managingCollection);
     const areaHistoryRouter = require("./routes/area-history") (areaHistoryCollection);
+    const contactInfoRouter = require("./routes/contactinfo") (contactInfoCollection);
+    const noticeRouter = require("./routes/notices") (noticeCollection);
+    const routineRouter = require("./routes/routine") (routineCollection);
 
     app.use("/api/users", usersRouter);
     app.use("/api/banners", bannersRouter);
@@ -154,6 +163,9 @@ async function run() {
     app.use("/api/blogs", blogsRouter);
     app.use("/api/managing-committee", managingRouter);
     app.use("/api/area-history", areaHistoryRouter);
+    app.use("/api/contact-info", contactInfoRouter);
+    app.use("/api/notices", noticeRouter);
+    app.use("/api/routines", routineRouter);
 
     // Health check route
     app.get("/health", (req, res) => {
