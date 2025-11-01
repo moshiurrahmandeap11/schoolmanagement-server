@@ -70,6 +70,8 @@ app.get("/", (req, res) => {
       headmasterList: "api/headmasters-list",
       holidays: "api/holiday",
       circular: "api/circular",
+      gallary: "api/gallery",
+      blogs: "api/blogs",
       health: "/health",
       testDb: "/api/test-db",
       uploads: "/api/uploads"
@@ -101,6 +103,8 @@ async function run() {
     const headmastersCollection = db.collection("headmasters-list");
     const holidayCollection = db.collection("holiday");
     const circularCollection = db.collection("circular");
+    const galleryCollection = db.collection("gallary");
+    const blogsCollection = db.collection("blogs");
 
     // Mount routes with collections - Fixed way
     const usersRouter = require("./routes/users")(usersCollection);
@@ -120,6 +124,8 @@ async function run() {
     const headmasterListRouter = require("./routes/headmaster-list") (headmastersCollection);
     const holidayRouter = require("./routes/holiday") (holidayCollection);
     const circularRouter = require("./routes/circular") (circularCollection);
+    const gallaryRouter = require("./routes/gallary") (galleryCollection);
+    const blogsRouter = require("./routes/blogs") (blogsCollection);
 
     app.use("/api/users", usersRouter);
     app.use("/api/banners", bannersRouter);
@@ -138,6 +144,8 @@ async function run() {
     app.use("/api/headmasters-list", headmasterListRouter);
     app.use("/api/holiday", holidayRouter);
     app.use("/api/circulars", circularRouter);
+    app.use("/api/gallery", gallaryRouter);
+    app.use("/api/blogs", blogsRouter);
 
     // Health check route
     app.get("/health", (req, res) => {
