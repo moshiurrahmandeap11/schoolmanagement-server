@@ -115,6 +115,8 @@ async function run() {
     const contactInfoCollection = db.collection("contact-info");
     const noticeCollection = db.collection("notice");
     const routineCollection = db.collection("routine");
+    const branchesCollection = db.collection("branches");
+    const donationCollection = db.collection ("donation");
 
     // Mount routes with collections - Fixed way
     const usersRouter = require("./routes/users")(usersCollection);
@@ -141,6 +143,8 @@ async function run() {
     const contactInfoRouter = require("./routes/contactinfo") (contactInfoCollection);
     const noticeRouter = require("./routes/notices") (noticeCollection);
     const routineRouter = require("./routes/routine") (routineCollection);
+    const branchesRouter = require("./routes/branches") (branchesCollection);
+    const donationRouter = require("./routes/donation") (db);
 
     app.use("/api/users", usersRouter);
     app.use("/api/banners", bannersRouter);
@@ -166,6 +170,8 @@ async function run() {
     app.use("/api/contact-info", contactInfoRouter);
     app.use("/api/notices", noticeRouter);
     app.use("/api/routines", routineRouter);
+    app.use("/api/branches", branchesRouter);
+    app.use("/api/donation", donationRouter);
 
     // Health check route
     app.get("/health", (req, res) => {
