@@ -99,6 +99,8 @@ async function run() {
     const speechCollection = db.collection("speech");
     const studentsCollection = db.collection("students");
     const classesCollection = db.collection("classes");
+    const batchesCollection = db.collection("batches"); 
+    const sectionsCollection = db.collection("sections"); 
     const totalSeatCollection = db.collection("total-seat");
     const classRoomsCollection = db.collection("class-rooms");
     const admissionInfoCollection = db.collection("admission-info");
@@ -117,6 +119,7 @@ async function run() {
     const routineCollection = db.collection("routine");
     const branchesCollection = db.collection("branches");
     const donationCollection = db.collection ("donation");
+    const certificateCollection = db.collection("certificates");
 
     // Mount routes with collections - Fixed way
     const usersRouter = require("./routes/users")(usersCollection);
@@ -126,7 +129,11 @@ async function run() {
     const schoolHistoryRouter = require("./routes/school-history") (schoolHistoryCollection)
     const speechRouter = require("./routes/speech") (speechCollection);
     const studentsRouter = require("./routes/students")(studentsCollection);
-    const classesRouter = require("./routes/classes")(classesCollection);
+    const classesRouter = require("./routes/classes")(
+    classesCollection, 
+    batchesCollection, 
+    sectionsCollection
+);
     const totalSeatRouter = require("./routes/total-seats")(totalSeatCollection);
     const classRoomsRouter = require("./routes/classrooms")(classRoomsCollection);
     const admissionInfoRouter = require("./routes/admission-info") (admissionInfoCollection);
@@ -145,6 +152,7 @@ async function run() {
     const routineRouter = require("./routes/routine") (routineCollection);
     const branchesRouter = require("./routes/branches") (branchesCollection);
     const donationRouter = require("./routes/donation") (db);
+    const certificateRouter = require("./routes/certificate") (db);
 
     app.use("/api/users", usersRouter);
     app.use("/api/banners", bannersRouter);
@@ -172,6 +180,7 @@ async function run() {
     app.use("/api/routines", routineRouter);
     app.use("/api/branches", branchesRouter);
     app.use("/api/donation", donationRouter);
+    app.use("/api/certificate", certificateRouter);
 
     // Health check route
     app.get("/health", (req, res) => {
