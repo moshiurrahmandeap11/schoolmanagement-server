@@ -120,6 +120,18 @@ async function run() {
     const branchesCollection = db.collection("branches");
     const donationCollection = db.collection ("donation");
     const certificateCollection = db.collection("certificates");
+    const salaryTypesCollection = db.collection("salaryTypes");
+    const instituteInfoCollection = db.collection("InstituteInfo");
+    const adminContactCollection = db.collection("AdminContact");
+    const eventsCollection = db.collection("Events");
+    const facilitiesCollection = db.collection("Facilities");
+    const socialLinksCollection = db.collection("Social-Links");
+    const privacyPolicyCollection = db.collection("Privacy-Policy");
+    const authorsCollection = db.collection("Authors");
+    const menuCollection = db.collection("menu");
+    const pagesCollection = db.collection("pages");
+    const playlistCollection = db.collection("playlist");
+    const videosCollection = db.collection("videos");
 
     // Mount routes with collections - Fixed way
     const usersRouter = require("./routes/users")(usersCollection);
@@ -129,11 +141,7 @@ async function run() {
     const schoolHistoryRouter = require("./routes/school-history") (schoolHistoryCollection)
     const speechRouter = require("./routes/speech") (speechCollection);
     const studentsRouter = require("./routes/students")(studentsCollection);
-    const classesRouter = require("./routes/classes")(
-    classesCollection, 
-    batchesCollection, 
-    sectionsCollection
-);
+    const classesRouter = require("./routes/classes")(classesCollection, batchesCollection, sectionsCollection);
     const totalSeatRouter = require("./routes/total-seats")(totalSeatCollection);
     const classRoomsRouter = require("./routes/classrooms")(classRoomsCollection);
     const admissionInfoRouter = require("./routes/admission-info") (admissionInfoCollection);
@@ -153,6 +161,18 @@ async function run() {
     const branchesRouter = require("./routes/branches") (branchesCollection);
     const donationRouter = require("./routes/donation") (db);
     const certificateRouter = require("./routes/certificate") (db);
+    const salaryTypeRouter = require("./routes/salaryTypes") (salaryTypesCollection);
+    const instituteInfoRouter = require("./routes/institute-info") (instituteInfoCollection);
+    const adminContactRouter = require("./routes/admin-contact") (adminContactCollection);
+    const eventRouter = require("./routes/events") (eventsCollection);
+    const facilitiesRouter = require("./routes/facilities") (facilitiesCollection);
+    const socialLinksRouter = require("./routes/sociallinks") (socialLinksCollection);
+    const privacyPolicyRouter = require("./routes/privacy-policy") (privacyPolicyCollection);
+    const authorsRouter = require("./routes/authors") (authorsCollection);
+    const menuRouter = require("./routes/menu") (menuCollection);
+    const pagesRouter = require("./routes/pages") (pagesCollection);
+    const playlistRouter = require("./routes/playlist") (playlistCollection);
+    const videosRouter = require("./routes/videos") (videosCollection);
 
     app.use("/api/users", usersRouter);
     app.use("/api/banners", bannersRouter);
@@ -181,6 +201,18 @@ async function run() {
     app.use("/api/branches", branchesRouter);
     app.use("/api/donation", donationRouter);
     app.use("/api/certificate", certificateRouter);
+    app.use("/api/salary-types", salaryTypeRouter);
+    app.use("/api/institute-info", instituteInfoRouter);
+    app.use("/api/admin-contact", adminContactRouter);
+    app.use("/api/events", eventRouter);
+    app.use("/api/facilities", facilitiesRouter);
+    app.use("/api/social-links", socialLinksRouter);
+    app.use("/api/privacy-policy", privacyPolicyRouter);
+    app.use("/api/authors", authorsRouter);
+    app.use("/api/menus", menuRouter);
+    app.use("/api/pages", pagesRouter);
+    app.use("/api/playlists",playlistRouter);
+    app.use("/api/videos", videosRouter);
 
     // Health check route
     app.get("/health", (req, res) => {

@@ -7,7 +7,7 @@ const { ObjectId } = require('mongodb');
 
 module.exports = (teachersListCollection) => {
 
-    // Configure multer for teacher photos - banners এর মতোই
+    // Configure multer for teacher photos
     const storage = multer.diskStorage({
         destination: function (req, file, cb) {
             const uploadDir = path.join(__dirname, '../uploads/teacher-photos');
@@ -82,31 +82,27 @@ module.exports = (teachersListCollection) => {
         }
     });
 
-    // CREATE new teacher with file upload - banners এর মতোই system
+    // CREATE new teacher with file upload - UPDATED FIELDS
     router.post('/', upload.single('photo'), async (req, res) => {
         try {
             const { 
+                smartId,
+                fingerId,
                 name, 
                 mobile, 
-                subject, 
-                email, 
-                address, 
-                joiningDate, 
-                qualifications, 
-                designation, 
-                department, 
+                designation,
+                biboron,
                 salary, 
-                experience, 
-                bloodGroup, 
-                gender, 
-                dateOfBirth 
+                position,
+                session,
+                staffType
             } = req.body;
 
-            // Validation
-            if (!name || !mobile || !subject) {
+            // Validation - updated required fields
+            if (!name || !mobile) {
                 return res.status(400).json({
                     success: false,
-                    message: 'Name, mobile and subject are required fields'
+                    message: 'Name and mobile are required fields'
                 });
             }
 
@@ -128,24 +124,42 @@ module.exports = (teachersListCollection) => {
                 });
             }
 
+            // Check if smartId already exists (if provided)
+            if (smartId) {
+                const existingSmartId = await teachersListCollection.findOne({ smartId });
+                if (existingSmartId) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'A teacher with this Smart ID already exists'
+                    });
+                }
+            }
+
+            // Check if fingerId already exists (if provided)
+            if (fingerId) {
+                const existingFingerId = await teachersListCollection.findOne({ fingerId });
+                if (existingFingerId) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'A teacher with this Finger ID already exists'
+                    });
+                }
+            }
+
             const newTeacher = {
+                smartId: smartId?.trim() || '',
+                fingerId: fingerId?.trim() || '',
                 name: name.trim(),
                 mobile: mobile.trim(),
-                subject: subject.trim(),
-                email: email?.trim() || '',
-                address: address?.trim() || '',
-                joiningDate: joiningDate || new Date(),
-                qualifications: qualifications?.trim() || '',
-                photo: req.file ? `/api/uploads/teacher-photos/${req.file.filename}` : '', // banners এর মতোই
-                photoOriginalName: req.file ? req.file.originalname : '',
                 designation: designation?.trim() || '',
-                department: department?.trim() || '',
+                biboron: biboron?.trim() || '',
                 salary: salary || '',
-                experience: experience || '',
-                bloodGroup: bloodGroup || '',
-                gender: gender || '',
-                dateOfBirth: dateOfBirth || '',
-                isActive: true,
+                position: position || 'Active',
+                session: session?.trim() || '',
+                staffType: staffType || 'Teacher',
+                photo: req.file ? `/api/uploads/teacher-photos/${req.file.filename}` : '',
+                photoOriginalName: req.file ? req.file.originalname : '',
+                isActive: position !== 'Deactivated', // Automatically set isActive based on position
                 createdAt: new Date(),
                 updatedAt: new Date()
             };
@@ -156,51 +170,46 @@ module.exports = (teachersListCollection) => {
                 const createdTeacher = await teachersListCollection.findOne({ _id: result.insertedId });
                 res.status(201).json({
                     success: true,
-                    message: 'Teacher added successfully',
+                    message: 'Teacher/Staff added successfully',
                     data: createdTeacher
                 });
             } else {
                 res.status(400).json({
                     success: false,
-                    message: 'Failed to add teacher'
+                    message: 'Failed to add teacher/staff'
                 });
             }
         } catch (error) {
             console.error('Error adding teacher:', error);
             res.status(500).json({
                 success: false,
-                message: 'Failed to add teacher'
+                message: 'Failed to add teacher/staff'
             });
         }
     });
 
-    // UPDATE teacher with file upload
+    // UPDATE teacher with file upload - UPDATED FIELDS
     router.put('/:id', upload.single('photo'), async (req, res) => {
         try {
             const { id } = req.params;
             const { 
+                smartId,
+                fingerId,
                 name, 
                 mobile, 
-                subject, 
-                email, 
-                address, 
-                joiningDate, 
-                qualifications, 
-                designation, 
-                department, 
+                designation,
+                biboron,
                 salary, 
-                experience, 
-                bloodGroup, 
-                gender, 
-                dateOfBirth, 
-                isActive 
+                position,
+                session,
+                staffType
             } = req.body;
 
-            // Validation
-            if (!name || !mobile || !subject) {
+            // Validation - updated required fields
+            if (!name || !mobile) {
                 return res.status(400).json({
                     success: false,
-                    message: 'Name, mobile and subject are required fields'
+                    message: 'Name and mobile are required fields'
                 });
             }
 
@@ -217,6 +226,34 @@ module.exports = (teachersListCollection) => {
                 });
             }
 
+            // Check if smartId already exists for other teachers (if provided)
+            if (smartId) {
+                const existingSmartId = await teachersListCollection.findOne({ 
+                    smartId, 
+                    _id: { $ne: new ObjectId(id) } 
+                });
+                if (existingSmartId) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'A teacher with this Smart ID already exists'
+                    });
+                }
+            }
+
+            // Check if fingerId already exists for other teachers (if provided)
+            if (fingerId) {
+                const existingFingerId = await teachersListCollection.findOne({ 
+                    fingerId, 
+                    _id: { $ne: new ObjectId(id) } 
+                });
+                if (existingFingerId) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'A teacher with this Finger ID already exists'
+                    });
+                }
+            }
+
             // Get current teacher data
             const currentTeacher = await teachersListCollection.findOne({ _id: new ObjectId(id) });
             if (!currentTeacher) {
@@ -227,21 +264,17 @@ module.exports = (teachersListCollection) => {
             }
 
             const updateData = {
+                smartId: smartId?.trim() || '',
+                fingerId: fingerId?.trim() || '',
                 name: name.trim(),
                 mobile: mobile.trim(),
-                subject: subject.trim(),
-                email: email?.trim() || '',
-                address: address?.trim() || '',
-                joiningDate: joiningDate || new Date(),
-                qualifications: qualifications?.trim() || '',
                 designation: designation?.trim() || '',
-                department: department?.trim() || '',
+                biboron: biboron?.trim() || '',
                 salary: salary || '',
-                experience: experience || '',
-                bloodGroup: bloodGroup || '',
-                gender: gender || '',
-                dateOfBirth: dateOfBirth || '',
-                isActive: isActive !== undefined ? JSON.parse(isActive) : true,
+                position: position || 'Active',
+                session: session?.trim() || '',
+                staffType: staffType || 'Teacher',
+                isActive: position !== 'Deactivated', // Automatically set isActive based on position
                 updatedAt: new Date()
             };
 
@@ -269,7 +302,7 @@ module.exports = (teachersListCollection) => {
                 const updatedTeacher = await teachersListCollection.findOne({ _id: new ObjectId(id) });
                 res.json({
                     success: true,
-                    message: 'Teacher updated successfully',
+                    message: 'Teacher/Staff updated successfully',
                     data: updatedTeacher
                 });
             } else {
@@ -282,7 +315,7 @@ module.exports = (teachersListCollection) => {
             console.error('Error updating teacher:', error);
             res.status(500).json({
                 success: false,
-                message: 'Failed to update teacher'
+                message: 'Failed to update teacher/staff'
             });
         }
     });
@@ -316,7 +349,7 @@ module.exports = (teachersListCollection) => {
             if (result.deletedCount > 0) {
                 res.json({
                     success: true,
-                    message: 'Teacher deleted successfully'
+                    message: 'Teacher/Staff deleted successfully'
                 });
             } else {
                 res.status(404).json({
@@ -328,17 +361,17 @@ module.exports = (teachersListCollection) => {
             console.error('Error deleting teacher:', error);
             res.status(500).json({
                 success: false,
-                message: 'Failed to delete teacher'
+                message: 'Failed to delete teacher/staff'
             });
         }
     });
 
-    // GET teachers by subject
-    router.get('/subject/:subject', async (req, res) => {
+    // GET teachers by staff type
+    router.get('/type/:staffType', async (req, res) => {
         try {
-            const { subject } = req.params;
+            const { staffType } = req.params;
             const teachers = await teachersListCollection.find({ 
-                subject: new RegExp(subject, 'i') 
+                staffType: new RegExp(staffType, 'i') 
             }).toArray();
 
             res.json({
@@ -347,10 +380,84 @@ module.exports = (teachersListCollection) => {
                 count: teachers.length
             });
         } catch (error) {
-            console.error('Error fetching teachers by subject:', error);
+            console.error('Error fetching teachers by staff type:', error);
             res.status(500).json({
                 success: false,
-                message: 'Failed to fetch teachers by subject'
+                message: 'Failed to fetch teachers by staff type'
+            });
+        }
+    });
+
+    // GET teachers by position
+    router.get('/position/:position', async (req, res) => {
+        try {
+            const { position } = req.params;
+            const teachers = await teachersListCollection.find({ 
+                position: new RegExp(position, 'i') 
+            }).toArray();
+
+            res.json({
+                success: true,
+                data: teachers,
+                count: teachers.length
+            });
+        } catch (error) {
+            console.error('Error fetching teachers by position:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Failed to fetch teachers by position'
+            });
+        }
+    });
+
+    // SEARCH teachers with multiple criteria
+    router.get('/search/filter', async (req, res) => {
+        try {
+            const { search, session, mobile, staffType, position } = req.query;
+            
+            let query = {};
+            
+            // Search by multiple fields
+            if (search) {
+                query.$or = [
+                    { smartId: new RegExp(search, 'i') },
+                    { name: new RegExp(search, 'i') },
+                    { fingerId: new RegExp(search, 'i') }
+                ];
+            }
+            
+            // Filter by session
+            if (session) {
+                query.session = new RegExp(session, 'i');
+            }
+            
+            // Filter by mobile
+            if (mobile) {
+                query.mobile = new RegExp(mobile, 'i');
+            }
+            
+            // Filter by staff type
+            if (staffType) {
+                query.staffType = staffType;
+            }
+            
+            // Filter by position
+            if (position) {
+                query.position = position;
+            }
+
+            const teachers = await teachersListCollection.find(query).toArray();
+
+            res.json({
+                success: true,
+                data: teachers,
+                count: teachers.length
+            });
+        } catch (error) {
+            console.error('Error searching teachers:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Failed to search teachers'
             });
         }
     });
@@ -374,6 +481,7 @@ module.exports = (teachersListCollection) => {
                 { 
                     $set: { 
                         isActive: !teacher.isActive,
+                        position: !teacher.isActive ? 'Active' : 'Deactivated',
                         updatedAt: new Date()
                     } 
                 }
@@ -383,7 +491,8 @@ module.exports = (teachersListCollection) => {
                 success: true,
                 message: `Teacher ${!teacher.isActive ? 'activated' : 'deactivated'} successfully`,
                 data: {
-                    isActive: !teacher.isActive
+                    isActive: !teacher.isActive,
+                    position: !teacher.isActive ? 'Active' : 'Deactivated'
                 }
             });
         } catch (error) {
@@ -394,9 +503,6 @@ module.exports = (teachersListCollection) => {
             });
         }
     });
-
-    // Remove the separate upload route since we're handling upload in POST/PUT
-    // router.post('/teacher-photo', upload.single('photo'), ... // REMOVE THIS
 
     return router;
 };

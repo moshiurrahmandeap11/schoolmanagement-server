@@ -23,7 +23,7 @@ module.exports = (blogsCollection) => {
         }
     });
 
-    // ✅ 🆕 GET single blog by ID
+    // ✅ GET single blog by ID
     router.get('/:id', async (req, res) => {
         try {
             const { id } = req.params;
@@ -57,15 +57,30 @@ module.exports = (blogsCollection) => {
         }
     });
 
-    // ✅ CREATE new blog
+    // ✅ CREATE new blog with all fields
     router.post('/', upload.single('thumbnail'), async (req, res) => {
         try {
-            const { title, body, author, isActive } = req.body;
+            console.log('=== BLOG CREATION REQUEST ===');
+            console.log('Request body:', req.body);
+            console.log('Request file:', req.file);
 
-            if (!title || !body) {
+            const { 
+                title, 
+                teacher, 
+                author, 
+                category, 
+                description, 
+                status, 
+                isPremium, 
+                isFeatured, 
+                tags 
+            } = req.body;
+
+            // Validation
+            if (!title || !description) {
                 return res.status(400).json({
                     success: false,
-                    message: 'টাইটেল ও কনটেন্ট আবশ্যক'
+                    message: 'শিরোনাম ও বিবরণ আবশ্যক'
                 });
             }
 
@@ -76,16 +91,31 @@ module.exports = (blogsCollection) => {
                 });
             }
 
+            // Parse boolean values safely
+            const parseBoolean = (value) => {
+                if (value === 'true' || value === true) return true;
+                if (value === 'false' || value === false) return false;
+                return false;
+            };
+
             const newBlog = {
-                title,
-                body,
-                author: author || 'Unknown',
+                title: title.trim(),
+                teacher: teacher || '',
+                author: author || '',
+                category: category || '',
+                description: description,
                 thumbnail: `/api/uploads/${req.file.filename}`,
                 originalFileName: req.file.originalname,
-                isActive: isActive !== undefined ? JSON.parse(isActive) : true,
+                status: status || 'Draft',
+                isPremium: parseBoolean(isPremium),
+                isFeatured: parseBoolean(isFeatured),
+                tags: tags || '',
+                isActive: true,
                 createdAt: new Date(),
                 updatedAt: new Date()
             };
+
+            console.log('Blog data to insert:', newBlog);
 
             const result = await blogsCollection.insertOne(newBlog);
 
@@ -97,7 +127,9 @@ module.exports = (blogsCollection) => {
                     ...newBlog
                 }
             });
+
         } catch (error) {
+            console.error('BLOG CREATION ERROR:', error);
             res.status(500).json({
                 success: false,
                 message: 'ব্লগ তৈরি করতে সমস্যা হয়েছে',
@@ -106,11 +138,21 @@ module.exports = (blogsCollection) => {
         }
     });
 
-    // ✅ UPDATE blog
+    // ✅ UPDATE blog with all fields
     router.put('/:id', upload.single('thumbnail'), async (req, res) => {
         try {
             const { id } = req.params;
-            const { title, body, isActive } = req.body;
+            const { 
+                title, 
+                teacher, 
+                author, 
+                category, 
+                description, 
+                status, 
+                isPremium, 
+                isFeatured, 
+                tags 
+            } = req.body;
 
             const existingBlog = await blogsCollection.findOne({ _id: new ObjectId(id) });
             if (!existingBlog) {
@@ -122,6 +164,7 @@ module.exports = (blogsCollection) => {
 
             let updatedThumbnail = existingBlog.thumbnail;
             if (req.file) {
+                // Delete old thumbnail if exists
                 if (existingBlog.thumbnail && existingBlog.thumbnail.startsWith('/api/uploads/')) {
                     const oldFile = existingBlog.thumbnail.replace('/api/uploads/', '');
                     const oldPath = path.join(__dirname, '..', 'uploads', oldFile);
@@ -130,10 +173,23 @@ module.exports = (blogsCollection) => {
                 updatedThumbnail = `/api/uploads/${req.file.filename}`;
             }
 
+            // Parse boolean values safely
+            const parseBoolean = (value, defaultValue) => {
+                if (value === 'true' || value === true) return true;
+                if (value === 'false' || value === false) return false;
+                return defaultValue;
+            };
+
             const updatedData = {
                 title: title || existingBlog.title,
-                body: body || existingBlog.body,
-                isActive: isActive !== undefined ? JSON.parse(isActive) : existingBlog.isActive,
+                teacher: teacher || existingBlog.teacher,
+                author: author || existingBlog.author,
+                category: category || existingBlog.category,
+                description: description || existingBlog.description,
+                status: status || existingBlog.status,
+                isPremium: parseBoolean(isPremium, existingBlog.isPremium),
+                isFeatured: parseBoolean(isFeatured, existingBlog.isFeatured),
+                tags: tags || existingBlog.tags,
                 thumbnail: updatedThumbnail,
                 updatedAt: new Date()
             };
@@ -145,9 +201,11 @@ module.exports = (blogsCollection) => {
 
             res.json({
                 success: true,
-                message: 'ব্লগ সফলভাবে আপডেট হয়েছে'
+                message: 'ব্লগ সফলভাবে আপডেট হয়েছে',
+                data: updatedData
             });
         } catch (error) {
+            console.error('BLOG UPDATE ERROR:', error);
             res.status(500).json({
                 success: false,
                 message: 'ব্লগ আপডেট করতে সমস্যা হয়েছে',
