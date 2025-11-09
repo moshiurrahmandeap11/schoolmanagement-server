@@ -20,13 +20,29 @@ const storage = multer.diskStorage({
     }
 });
 
-// File filter
+// File filter - ALL file types allow korbo
 const fileFilter = (req, file, cb) => {
-    // Check if file is an image
-    if (file.mimetype.startsWith('image/')) {
+    // Allow all file types
+    const allowedMimes = [
+        'image/jpeg',
+        'image/jpg', 
+        'image/png',
+        'image/gif',
+        'image/webp',
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.ms-powerpoint',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        'text/plain'
+    ];
+
+    if (allowedMimes.includes(file.mimetype)) {
         cb(null, true);
     } else {
-        cb(new Error('শুধুমাত্র ইমেজ ফাইল আপলোড করা যাবে'), false);
+        cb(new Error('অনুমোদিত ফাইল ফরম্যাট নয়'), false);
     }
 };
 
@@ -34,10 +50,7 @@ const upload = multer({
     storage: storage,
     fileFilter: fileFilter,
     limits: {
-        fileSize: 5 * 1024 * 1024, // 5MB file size limit
-        fieldSize: 10 * 1024 * 1024, // 10MB field size limit (for rich text content)
-        fields: 10, // Max number of non-file fields
-        parts: 15 // Max number of parts (fields + files)
+        fileSize: 10 * 1024 * 1024, // 10MB file size limit
     }
 });
 

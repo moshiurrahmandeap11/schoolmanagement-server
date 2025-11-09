@@ -132,6 +132,14 @@ async function run() {
     const pagesCollection = db.collection("pages");
     const playlistCollection = db.collection("playlist");
     const videosCollection = db.collection("videos");
+    const documentCategoryCollection = db.collection("document-category");
+    const documentCollection = db.collection("documents");
+    const teacherLessonsCollection = db.collection("teacher-lesson");
+    const assignmentsCollection = db.collection("assignments");
+    const sectionCollection = db.collection("sections");
+    const subjectsCollection = db.collection("subjects");
+    const sessionCOllection = db.collection("sessions");
+    const batchCollection = db.collection("batch");
 
     // Mount routes with collections - Fixed way
     const usersRouter = require("./routes/users")(usersCollection);
@@ -173,6 +181,14 @@ async function run() {
     const pagesRouter = require("./routes/pages") (pagesCollection);
     const playlistRouter = require("./routes/playlist") (playlistCollection);
     const videosRouter = require("./routes/videos") (videosCollection);
+    const documentCategoryRouter = require("./routes/document-category") (documentCategoryCollection);
+    const documentsRouter = require("./routes/document") (documentCollection);
+    const teacherLessonRouter = require("./routes/teacher-lessons") (teacherLessonsCollection);
+    const assignmentRouter = require("./routes/assignments") (assignmentsCollection);
+    const sectionRouter = require("./routes/section") (sectionCollection);
+    const subjectsRouter = require("./routes/subjects") (subjectsCollection);
+    const sessionRouter = require("./routes/sessions") (sessionCOllection);
+    const batchRouter = require("./routes/batches") (batchCollection);
 
     app.use("/api/users", usersRouter);
     app.use("/api/banners", bannersRouter);
@@ -213,6 +229,14 @@ async function run() {
     app.use("/api/pages", pagesRouter);
     app.use("/api/playlists",playlistRouter);
     app.use("/api/videos", videosRouter);
+    app.use("/api/document-categories", documentCategoryRouter);
+    app.use("/api/documents", documentsRouter);
+    app.use("/api/teacher-lessons", teacherLessonRouter);
+    app.use("/api/assignments", assignmentRouter);
+    app.use("/api/sections", sectionRouter);
+    app.use("/api/subjects", subjectsRouter);
+    app.use("/api/sessions", sessionRouter);
+    app.use("/api/batches", batchRouter);
 
     // Health check route
     app.get("/health", (req, res) => {

@@ -1,44 +1,180 @@
 const express = require('express');
 const router = express.Router();
-const { ObjectId } = require('mongodb');
-const upload = require('../middleware/upload');
-const fs = require('fs');
+const multer = require('multer');
 const path = require('path');
+const fs = require('fs');
+const { ObjectId } = require('mongodb');
 
-module.exports = (studentsCollection, classesCollection) => {
+// Multer configuration for file upload
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const uploadDir = 'uploads/students/';
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'student-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
 
-    // GET all students
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB limit
+  },
+  fileFilter: function (req, file, cb) {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed'));
+    }
+  }
+});
+
+module.exports = (studentsCollection, classesCollection, sectionsCollection, batchesCollection, sessionsCollection, teachersCollection) => {
+
+    // GET all students with filtering
     router.get('/', async (req, res) => {
         try {
-            const students = await studentsCollection.find().sort({ class: 1, roll: 1 }).toArray();
-            res.json({
-                success: true,
-                data: students
-            });
-        } catch (error) {
-            res.status(500).json({
-                success: false,
-                message: 'ছাত্র-ছাত্রীদের তথ্য লোড করতে সমস্যা হয়েছে',
-                error: error.message
-            });
-        }
-    });
-
-    // GET students by class
-    router.get('/class/:className', async (req, res) => {
-        try {
-            const students = await studentsCollection.find({ 
-                class: req.params.className 
-            }).sort({ roll: 1 }).toArray();
+            const { search, classId, status } = req.query;
             
+            let filter = {};
+            
+            if (search) {
+                filter.$or = [
+                    { studentId: { $regex: search, $options: 'i' } },
+                    { smartId: { $regex: search, $options: 'i' } },
+                    { name: { $regex: search, $options: 'i' } },
+                    { dakhelaNumber: { $regex: search, $options: 'i' } }
+                ];
+            }
+            
+            if (classId) {
+                filter.classId = new ObjectId(classId);
+            }
+            
+            if (status) {
+                filter.status = status;
+            }
+
+            const students = await studentsCollection.aggregate([
+                {
+                    $match: filter
+                },
+                {
+                    $lookup: {
+                        from: 'classes',
+                        localField: 'classId',
+                        foreignField: '_id',
+                        as: 'class'
+                    }
+                },
+                {
+                    $lookup: {
+                        from: 'sections',
+                        localField: 'sectionId',
+                        foreignField: '_id',
+                        as: 'section'
+                    }
+                },
+                {
+                    $lookup: {
+                        from: 'batches',
+                        localField: 'batchId',
+                        foreignField: '_id',
+                        as: 'batch'
+                    }
+                },
+                {
+                    $lookup: {
+                        from: 'sessions',
+                        localField: 'sessionId',
+                        foreignField: '_id',
+                        as: 'session'
+                    }
+                },
+                {
+                    $lookup: {
+                        from: 'teachers',
+                        localField: 'mentorId',
+                        foreignField: '_id',
+                        as: 'mentor'
+                    }
+                },
+                {
+                    $unwind: {
+                        path: '$class',
+                        preserveNullAndEmptyArrays: true
+                    }
+                },
+                {
+                    $unwind: {
+                        path: '$section',
+                        preserveNullAndEmptyArrays: true
+                    }
+                },
+                {
+                    $unwind: {
+                        path: '$batch',
+                        preserveNullAndEmptyArrays: true
+                    }
+                },
+                {
+                    $unwind: {
+                        path: '$session',
+                        preserveNullAndEmptyArrays: true
+                    }
+                },
+                {
+                    $unwind: {
+                        path: '$mentor',
+                        preserveNullAndEmptyArrays: true
+                    }
+                },
+                {
+                    $project: {
+                        studentId: 1,
+                        smartId: 1,
+                        dakhelaNumber: 1,
+                        name: 1,
+                        classRoll: 1,
+                        status: 1,
+                        photo: 1,
+                        mobile: 1,
+                        parentMobile: 1,
+                        totalFees: 1,
+                        paidFees: 1,
+                        dueFees: 1,
+                        createdAt: 1,
+                        'class.name': 1,
+                        'section.name': 1,
+                        'batch.name': 1,
+                        'session.name': 1,
+                        'mentor.name': 1
+                    }
+                },
+                {
+                    $sort: { createdAt: -1 }
+                }
+            ]).toArray();
+
+            // Get total students count
+            const totalStudents = await studentsCollection.countDocuments();
+
             res.json({
                 success: true,
-                data: students
+                data: students,
+                total: totalStudents,
+                message: 'Students fetched successfully'
             });
         } catch (error) {
+            console.error('Error fetching students:', error);
             res.status(500).json({
                 success: false,
-                message: 'ছাত্র-ছাত্রীদের তথ্য লোড করতে সমস্যা হয়েছে',
+                message: 'Error fetching students',
                 error: error.message
             });
         }
@@ -47,25 +183,98 @@ module.exports = (studentsCollection, classesCollection) => {
     // GET single student by ID
     router.get('/:id', async (req, res) => {
         try {
-            const student = await studentsCollection.findOne({ 
-                _id: new ObjectId(req.params.id) 
-            });
-            
-            if (!student) {
+            const student = await studentsCollection.aggregate([
+                {
+                    $match: { _id: new ObjectId(req.params.id) }
+                },
+                {
+                    $lookup: {
+                        from: 'classes',
+                        localField: 'classId',
+                        foreignField: '_id',
+                        as: 'class'
+                    }
+                },
+                {
+                    $lookup: {
+                        from: 'sections',
+                        localField: 'sectionId',
+                        foreignField: '_id',
+                        as: 'section'
+                    }
+                },
+                {
+                    $lookup: {
+                        from: 'batches',
+                        localField: 'batchId',
+                        foreignField: '_id',
+                        as: 'batch'
+                    }
+                },
+                {
+                    $lookup: {
+                        from: 'sessions',
+                        localField: 'sessionId',
+                        foreignField: '_id',
+                        as: 'session'
+                    }
+                },
+                {
+                    $lookup: {
+                        from: 'teachers',
+                        localField: 'mentorId',
+                        foreignField: '_id',
+                        as: 'mentor'
+                    }
+                },
+                {
+                    $unwind: {
+                        path: '$class',
+                        preserveNullAndEmptyArrays: true
+                    }
+                },
+                {
+                    $unwind: {
+                        path: '$section',
+                        preserveNullAndEmptyArrays: true
+                    }
+                },
+                {
+                    $unwind: {
+                        path: '$batch',
+                        preserveNullAndEmptyArrays: true
+                    }
+                },
+                {
+                    $unwind: {
+                        path: '$session',
+                        preserveNullAndEmptyArrays: true
+                    }
+                },
+                {
+                    $unwind: {
+                        path: '$mentor',
+                        preserveNullAndEmptyArrays: true
+                    }
+                }
+            ]).toArray();
+
+            if (!student || student.length === 0) {
                 return res.status(404).json({
                     success: false,
-                    message: 'ছাত্র-ছাত্রী পাওয়া যায়নি'
+                    message: 'Student not found'
                 });
             }
 
             res.json({
                 success: true,
-                data: student
+                data: student[0]
             });
         } catch (error) {
+            console.error('Error fetching student:', error);
             res.status(500).json({
                 success: false,
-                message: 'ছাত্র-ছাত্রীর তথ্য লোড করতে সমস্যা হয়েছে',
+                message: 'Error fetching student',
                 error: error.message
             });
         }
@@ -74,70 +283,110 @@ module.exports = (studentsCollection, classesCollection) => {
     // CREATE new student
     router.post('/', upload.single('photo'), async (req, res) => {
         try {
-            const { 
-                name, 
-                class: studentClass, 
-                roll, 
-                section, 
-                fathersName, 
-                mothersName, 
-                bio, 
-                location, 
-                phoneNumber, 
-                fathersPhone, 
-                mothersPhone 
-            } = req.body;
-
-            // Validation
-            if (!name || !studentClass || !roll || !section) {
+            const studentData = req.body;
+            
+            // Required fields validation
+            if (!studentData.name || !studentData.classId || !studentData.classRoll) {
                 if (req.file) {
                     fs.unlinkSync(req.file.path);
                 }
                 return res.status(400).json({
                     success: false,
-                    message: 'নাম, ক্লাস, রোল এবং সেকশন আবশ্যক'
+                    message: 'Name, class, and class roll are required'
                 });
             }
 
-            // Check if student already exists in same class with same roll
-            const existingStudent = await studentsCollection.findOne({ 
-                class: studentClass, 
-                roll: parseInt(roll) 
-            });
-
-            if (existingStudent) {
-                if (req.file) {
-                    fs.unlinkSync(req.file.path);
-                }
-                return res.status(400).json({
-                    success: false,
-                    message: 'এই ক্লাসে এই রোল নম্বরের ছাত্র-ছাত্রী ইতিমধ্যে বিদ্যমান'
-                });
-            }
+            // Generate student ID
+            const year = new Date().getFullYear().toString().slice(-2);
+            const randomNum = Math.floor(1000 + Math.random() * 9000);
+            const studentId = `ST${year}${randomNum}`;
 
             const newStudent = {
-                name,
-                class: studentClass,
-                roll: parseInt(roll),
-                section,
-                fathersName: fathersName || '',
-                mothersName: mothersName || '',
-                bio: bio || '',
-                location: location || '',
-                phoneNumber: phoneNumber || '',
-                fathersPhone: fathersPhone || '',
-                mothersPhone: mothersPhone || '',
-                photo: req.file ? `/uploads/${req.file.filename}` : '',
-                status: 'active',
+                studentId,
+                smartId: studentData.smartId || '',
+                dakhelaNumber: studentData.dakhelaNumber || '',
+                name: studentData.name,
+                dob: studentData.dob ? new Date(studentData.dob) : null,
+                birthRegistration: studentData.birthRegistration || '',
+                gender: studentData.gender || 'male',
+                mobile: studentData.mobile || '',
+                bloodGroup: studentData.bloodGroup || '',
+                photo: req.file ? `/uploads/students/${req.file.filename}` : '',
+                attachmentType: studentData.attachmentType || '',
+
+                // Family Information
+                fatherName: studentData.fatherName || '',
+                motherName: studentData.motherName || '',
+                guardianName: studentData.guardianName || '',
+                guardianMobile: studentData.guardianMobile || '',
+                relation: studentData.relation || '',
+                guardianNid: studentData.guardianNid || '',
+
+                // Address Information
+                permanentVillage: studentData.permanentVillage || '',
+                permanentPostOffice: studentData.permanentPostOffice || '',
+                permanentDistrict: studentData.permanentDistrict || '',
+                permanentThana: studentData.permanentThana || '',
+                currentVillage: studentData.currentVillage || '',
+                currentPostOffice: studentData.currentPostOffice || '',
+                currentDistrict: studentData.currentDistrict || '',
+                currentThana: studentData.currentThana || '',
+                sameAsPermanent: studentData.sameAsPermanent === 'true',
+
+                // Academic Information
+                classId: new ObjectId(studentData.classId),
+                batchId: studentData.batchId ? new ObjectId(studentData.batchId) : null,
+                sectionId: studentData.sectionId ? new ObjectId(studentData.sectionId) : null,
+                sessionId: studentData.sessionId ? new ObjectId(studentData.sessionId) : null,
+                classRoll: parseInt(studentData.classRoll),
+                additionalNote: studentData.additionalNote || '',
+                status: studentData.status || 'active',
+                studentType: studentData.studentType || 'non_residential',
+                mentorId: studentData.mentorId ? new ObjectId(studentData.mentorId) : null,
+
+                // Fee Information
+                admissionFee: studentData.admissionFee ? parseFloat(studentData.admissionFee) : 0,
+                monthlyFee: studentData.monthlyFee ? parseFloat(studentData.monthlyFee) : 0,
+                previousDues: studentData.previousDues ? parseFloat(studentData.previousDues) : 0,
+                sessionFee: studentData.sessionFee ? parseFloat(studentData.sessionFee) : 0,
+                boardingFee: studentData.boardingFee ? parseFloat(studentData.boardingFee) : 0,
+                otherFee: studentData.otherFee ? parseFloat(studentData.otherFee) : 0,
+                transportFee: studentData.transportFee ? parseFloat(studentData.transportFee) : 0,
+                residenceFee: studentData.residenceFee ? parseFloat(studentData.residenceFee) : 0,
+
+                // Other Settings
+                sendAdmissionSMS: studentData.sendAdmissionSMS === 'true',
+                studentSerial: parseInt(studentData.studentSerial) || 0,
+                sendAttendanceSMS: studentData.sendAttendanceSMS === 'true',
+
+                // Calculate total fees
+                totalFees: 0,
+                paidFees: 0,
+                dueFees: 0,
+
+                isActive: true,
                 createdAt: new Date(),
                 updatedAt: new Date()
             };
+
+            // Calculate total fees
+            newStudent.totalFees = 
+                newStudent.admissionFee +
+                newStudent.monthlyFee +
+                newStudent.previousDues +
+                newStudent.sessionFee +
+                newStudent.boardingFee +
+                newStudent.otherFee +
+                newStudent.transportFee +
+                newStudent.residenceFee;
+            
+            newStudent.dueFees = newStudent.totalFees;
 
             const result = await studentsCollection.insertOne(newStudent);
             
             res.status(201).json({
                 success: true,
-                message: 'ছাত্র-ছাত্রী সফলভাবে তৈরি হয়েছে',
+                message: 'Student created successfully',
                 data: {
                     _id: result.insertedId,
                     ...newStudent
@@ -147,9 +396,10 @@ module.exports = (studentsCollection, classesCollection) => {
             if (req.file) {
                 fs.unlinkSync(req.file.path);
             }
+            console.error('Error creating student:', error);
             res.status(500).json({
                 success: false,
-                message: 'ছাত্র-ছাত্রী তৈরি করতে সমস্যা হয়েছে',
+                message: 'Error creating student',
                 error: error.message
             });
         }
@@ -158,24 +408,11 @@ module.exports = (studentsCollection, classesCollection) => {
     // UPDATE student
     router.put('/:id', upload.single('photo'), async (req, res) => {
         try {
-            const { 
-                name, 
-                class: studentClass, 
-                roll, 
-                section, 
-                fathersName, 
-                mothersName, 
-                bio, 
-                location, 
-                phoneNumber, 
-                fathersPhone, 
-                mothersPhone,
-                status 
-            } = req.body;
+            const { id } = req.params;
+            const studentData = req.body;
 
-            // Check if student exists
             const existingStudent = await studentsCollection.findOne({ 
-                _id: new ObjectId(req.params.id) 
+                _id: new ObjectId(id) 
             });
 
             if (!existingStudent) {
@@ -184,110 +421,79 @@ module.exports = (studentsCollection, classesCollection) => {
                 }
                 return res.status(404).json({
                     success: false,
-                    message: 'ছাত্র-ছাত্রী পাওয়া যায়নি'
+                    message: 'Student not found'
                 });
             }
 
             const updateData = {
+                ...studentData,
                 updatedAt: new Date()
             };
 
-            if (name) updateData.name = name;
-            if (studentClass) updateData.class = studentClass;
-            if (roll) updateData.roll = parseInt(roll);
-            if (section) updateData.section = section;
-            if (fathersName !== undefined) updateData.fathersName = fathersName;
-            if (mothersName !== undefined) updateData.mothersName = mothersName;
-            if (bio !== undefined) updateData.bio = bio;
-            if (location !== undefined) updateData.location = location;
-            if (phoneNumber !== undefined) updateData.phoneNumber = phoneNumber;
-            if (fathersPhone !== undefined) updateData.fathersPhone = fathersPhone;
-            if (mothersPhone !== undefined) updateData.mothersPhone = mothersPhone;
-            if (status) updateData.status = status;
+            // Handle ObjectId conversions
+            if (studentData.classId) updateData.classId = new ObjectId(studentData.classId);
+            if (studentData.batchId) updateData.batchId = new ObjectId(studentData.batchId);
+            if (studentData.sectionId) updateData.sectionId = new ObjectId(studentData.sectionId);
+            if (studentData.sessionId) updateData.sessionId = new ObjectId(studentData.sessionId);
+            if (studentData.mentorId) updateData.mentorId = new ObjectId(studentData.mentorId);
+
+            // Handle number conversions
+            if (studentData.classRoll) updateData.classRoll = parseInt(studentData.classRoll);
+            if (studentData.studentSerial) updateData.studentSerial = parseInt(studentData.studentSerial);
+            if (studentData.admissionFee) updateData.admissionFee = parseFloat(studentData.admissionFee);
+            if (studentData.monthlyFee) updateData.monthlyFee = parseFloat(studentData.monthlyFee);
+            if (studentData.previousDues) updateData.previousDues = parseFloat(studentData.previousDues);
+            if (studentData.sessionFee) updateData.sessionFee = parseFloat(studentData.sessionFee);
+            if (studentData.boardingFee) updateData.boardingFee = parseFloat(studentData.boardingFee);
+            if (studentData.otherFee) updateData.otherFee = parseFloat(studentData.otherFee);
+            if (studentData.transportFee) updateData.transportFee = parseFloat(studentData.transportFee);
+            if (studentData.residenceFee) updateData.residenceFee = parseFloat(studentData.residenceFee);
+
+            // Handle boolean conversions
+            updateData.sameAsPermanent = studentData.sameAsPermanent === 'true';
+            updateData.sendAdmissionSMS = studentData.sendAdmissionSMS === 'true';
+            updateData.sendAttendanceSMS = studentData.sendAttendanceSMS === 'true';
 
             // Handle photo update
             if (req.file) {
                 // Delete old photo if exists
                 if (existingStudent.photo) {
-                    const oldPhotoPath = path.join(__dirname, '..', existingStudent.photo);
+                    const oldPhotoPath = path.join(__dirname, '..', '..', existingStudent.photo);
                     if (fs.existsSync(oldPhotoPath)) {
                         fs.unlinkSync(oldPhotoPath);
                     }
                 }
-                updateData.photo = `/uploads/${req.file.filename}`;
+                updateData.photo = `/uploads/students/${req.file.filename}`;
             }
 
+            // Recalculate total fees
+            updateData.totalFees = 
+                (updateData.admissionFee || existingStudent.admissionFee) +
+                (updateData.monthlyFee || existingStudent.monthlyFee) +
+                (updateData.previousDues || existingStudent.previousDues) +
+                (updateData.sessionFee || existingStudent.sessionFee) +
+                (updateData.boardingFee || existingStudent.boardingFee) +
+                (updateData.otherFee || existingStudent.otherFee) +
+                (updateData.transportFee || existingStudent.transportFee) +
+                (updateData.residenceFee || existingStudent.residenceFee);
+
             const result = await studentsCollection.updateOne(
-                { _id: new ObjectId(req.params.id) },
+                { _id: new ObjectId(id) },
                 { $set: updateData }
             );
 
             res.json({
                 success: true,
-                message: 'ছাত্র-ছাত্রীর তথ্য সফলভাবে আপডেট হয়েছে',
-                data: {
-                    _id: req.params.id,
-                    ...updateData
-                }
+                message: 'Student updated successfully'
             });
         } catch (error) {
             if (req.file) {
                 fs.unlinkSync(req.file.path);
             }
+            console.error('Error updating student:', error);
             res.status(500).json({
                 success: false,
-                message: 'ছাত্র-ছাত্রীর তথ্য আপডেট করতে সমস্যা হয়েছে',
-                error: error.message
-            });
-        }
-    });
-
-    // PROMOTE student to next class
-    router.put('/:id/promote', async (req, res) => {
-        try {
-            const { newRoll, status } = req.body;
-
-            const student = await studentsCollection.findOne({ 
-                _id: new ObjectId(req.params.id) 
-            });
-
-            if (!student) {
-                return res.status(404).json({
-                    success: false,
-                    message: 'ছাত্র-ছাত্রী পাওয়া যায়নি'
-                });
-            }
-
-            // Get current class number and increment
-            const currentClass = student.class;
-            const classNumber = parseInt(currentClass.replace(/\D/g, ''));
-            const nextClass = `Class ${classNumber + 1}`;
-
-            const updateData = {
-                class: nextClass,
-                roll: parseInt(newRoll),
-                status: status || 'active',
-                promotedAt: new Date(),
-                updatedAt: new Date()
-            };
-
-            await studentsCollection.updateOne(
-                { _id: new ObjectId(req.params.id) },
-                { $set: updateData }
-            );
-
-            res.json({
-                success: true,
-                message: 'ছাত্র-ছাত্রী সফলভাবে প্রমোট করা হয়েছে',
-                data: {
-                    _id: req.params.id,
-                    ...updateData
-                }
-            });
-        } catch (error) {
-            res.status(500).json({
-                success: false,
-                message: 'ছাত্র-ছাত্রী প্রমোট করতে সমস্যা হয়েছে',
+                message: 'Error updating student',
                 error: error.message
             });
         }
@@ -296,37 +502,40 @@ module.exports = (studentsCollection, classesCollection) => {
     // DELETE student
     router.delete('/:id', async (req, res) => {
         try {
+            const { id } = req.params;
+
             const student = await studentsCollection.findOne({ 
-                _id: new ObjectId(req.params.id) 
+                _id: new ObjectId(id) 
             });
 
             if (!student) {
                 return res.status(404).json({
                     success: false,
-                    message: 'ছাত্র-ছাত্রী পাওয়া যায়নি'
+                    message: 'Student not found'
                 });
             }
 
             // Delete photo file if exists
             if (student.photo) {
-                const photoPath = path.join(__dirname, '..', student.photo);
+                const photoPath = path.join(__dirname, '..', '..', student.photo);
                 if (fs.existsSync(photoPath)) {
                     fs.unlinkSync(photoPath);
                 }
             }
 
             await studentsCollection.deleteOne({ 
-                _id: new ObjectId(req.params.id) 
+                _id: new ObjectId(id) 
             });
 
             res.json({
                 success: true,
-                message: 'ছাত্র-ছাত্রী সফলভাবে ডিলিট হয়েছে'
+                message: 'Student deleted successfully'
             });
         } catch (error) {
+            console.error('Error deleting student:', error);
             res.status(500).json({
                 success: false,
-                message: 'ছাত্র-ছাত্রী ডিলিট করতে সমস্যা হয়েছে',
+                message: 'Error deleting student',
                 error: error.message
             });
         }
