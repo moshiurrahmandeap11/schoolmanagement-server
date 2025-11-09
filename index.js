@@ -140,6 +140,7 @@ async function run() {
     const subjectsCollection = db.collection("subjects");
     const sessionCOllection = db.collection("sessions");
     const batchCollection = db.collection("batch");
+    const classReportCollection = db.collection("classreports");
 
     // Mount routes with collections - Fixed way
     const usersRouter = require("./routes/users")(usersCollection);
@@ -189,6 +190,7 @@ async function run() {
     const subjectsRouter = require("./routes/subjects") (subjectsCollection);
     const sessionRouter = require("./routes/sessions") (sessionCOllection);
     const batchRouter = require("./routes/batches") (batchCollection);
+    const classReportRouter = require("./routes/classreports") (classReportCollection);
 
     app.use("/api/users", usersRouter);
     app.use("/api/banners", bannersRouter);
@@ -237,6 +239,7 @@ async function run() {
     app.use("/api/subjects", subjectsRouter);
     app.use("/api/sessions", sessionRouter);
     app.use("/api/batches", batchRouter);
+    app.use("/api/class-reports", classReportRouter);
 
     // Health check route
     app.get("/health", (req, res) => {

@@ -48,7 +48,9 @@ module.exports = (studentsCollection, classesCollection, sectionsCollection, bat
                     { studentId: { $regex: search, $options: 'i' } },
                     { smartId: { $regex: search, $options: 'i' } },
                     { name: { $regex: search, $options: 'i' } },
-                    { dakhelaNumber: { $regex: search, $options: 'i' } }
+                    { dakhelaNumber: { $regex: search, $options: 'i' } },
+                    { fatherName: { $regex: search, $options: 'i' } },
+                    { mobile: { $regex: search, $options: 'i' } }
                 ];
             }
             
@@ -144,16 +146,24 @@ module.exports = (studentsCollection, classesCollection, sectionsCollection, bat
                         status: 1,
                         photo: 1,
                         mobile: 1,
-                        parentMobile: 1,
+                        fatherName: 1,
+                        motherName: 1,
+                        guardianName: 1,
+                        guardianMobile: 1,
                         totalFees: 1,
                         paidFees: 1,
                         dueFees: 1,
                         createdAt: 1,
                         'class.name': 1,
+                        'class._id': 1,
                         'section.name': 1,
+                        'section._id': 1,
                         'batch.name': 1,
+                        'batch._id': 1,
                         'session.name': 1,
-                        'mentor.name': 1
+                        'session._id': 1,
+                        'mentor.name': 1,
+                        'mentor._id': 1
                     }
                 },
                 {
@@ -301,6 +311,25 @@ module.exports = (studentsCollection, classesCollection, sectionsCollection, bat
             const randomNum = Math.floor(1000 + Math.random() * 9000);
             const studentId = `ST${year}${randomNum}`;
 
+            // Parse numeric values safely
+            const parseFloatSafe = (value) => {
+                if (!value || value === '') return 0;
+                const parsed = parseFloat(value);
+                return isNaN(parsed) ? 0 : parsed;
+            };
+
+            const parseIntSafe = (value) => {
+                if (!value || value === '') return 0;
+                const parsed = parseInt(value);
+                return isNaN(parsed) ? 0 : parsed;
+            };
+
+            const parseBoolean = (value) => {
+                if (value === 'true' || value === true || value === '1') return true;
+                if (value === 'false' || value === false || value === '0') return false;
+                return Boolean(value);
+            };
+
             const newStudent = {
                 studentId,
                 smartId: studentData.smartId || '',
@@ -331,33 +360,33 @@ module.exports = (studentsCollection, classesCollection, sectionsCollection, bat
                 currentPostOffice: studentData.currentPostOffice || '',
                 currentDistrict: studentData.currentDistrict || '',
                 currentThana: studentData.currentThana || '',
-                sameAsPermanent: studentData.sameAsPermanent === 'true',
+                sameAsPermanent: parseBoolean(studentData.sameAsPermanent),
 
                 // Academic Information
                 classId: new ObjectId(studentData.classId),
                 batchId: studentData.batchId ? new ObjectId(studentData.batchId) : null,
                 sectionId: studentData.sectionId ? new ObjectId(studentData.sectionId) : null,
                 sessionId: studentData.sessionId ? new ObjectId(studentData.sessionId) : null,
-                classRoll: parseInt(studentData.classRoll),
+                classRoll: parseIntSafe(studentData.classRoll),
                 additionalNote: studentData.additionalNote || '',
                 status: studentData.status || 'active',
                 studentType: studentData.studentType || 'non_residential',
                 mentorId: studentData.mentorId ? new ObjectId(studentData.mentorId) : null,
 
                 // Fee Information
-                admissionFee: studentData.admissionFee ? parseFloat(studentData.admissionFee) : 0,
-                monthlyFee: studentData.monthlyFee ? parseFloat(studentData.monthlyFee) : 0,
-                previousDues: studentData.previousDues ? parseFloat(studentData.previousDues) : 0,
-                sessionFee: studentData.sessionFee ? parseFloat(studentData.sessionFee) : 0,
-                boardingFee: studentData.boardingFee ? parseFloat(studentData.boardingFee) : 0,
-                otherFee: studentData.otherFee ? parseFloat(studentData.otherFee) : 0,
-                transportFee: studentData.transportFee ? parseFloat(studentData.transportFee) : 0,
-                residenceFee: studentData.residenceFee ? parseFloat(studentData.residenceFee) : 0,
+                admissionFee: parseFloatSafe(studentData.admissionFee),
+                monthlyFee: parseFloatSafe(studentData.monthlyFee),
+                previousDues: parseFloatSafe(studentData.previousDues),
+                sessionFee: parseFloatSafe(studentData.sessionFee),
+                boardingFee: parseFloatSafe(studentData.boardingFee),
+                otherFee: parseFloatSafe(studentData.otherFee),
+                transportFee: parseFloatSafe(studentData.transportFee),
+                residenceFee: parseFloatSafe(studentData.residenceFee),
 
                 // Other Settings
-                sendAdmissionSMS: studentData.sendAdmissionSMS === 'true',
-                studentSerial: parseInt(studentData.studentSerial) || 0,
-                sendAttendanceSMS: studentData.sendAttendanceSMS === 'true',
+                sendAdmissionSMS: parseBoolean(studentData.sendAdmissionSMS),
+                studentSerial: parseIntSafe(studentData.studentSerial),
+                sendAttendanceSMS: parseBoolean(studentData.sendAttendanceSMS),
 
                 // Calculate total fees
                 totalFees: 0,
@@ -425,34 +454,84 @@ module.exports = (studentsCollection, classesCollection, sectionsCollection, bat
                 });
             }
 
+            // Parse numeric values safely
+            const parseFloatSafe = (value) => {
+                if (!value || value === '') return 0;
+                const parsed = parseFloat(value);
+                return isNaN(parsed) ? 0 : parsed;
+            };
+
+            const parseIntSafe = (value) => {
+                if (!value || value === '') return 0;
+                const parsed = parseInt(value);
+                return isNaN(parsed) ? 0 : parsed;
+            };
+
+            const parseBoolean = (value) => {
+                if (value === 'true' || value === true || value === '1') return true;
+                if (value === 'false' || value === false || value === '0') return false;
+                return Boolean(value);
+            };
+
             const updateData = {
-                ...studentData,
                 updatedAt: new Date()
             };
 
-            // Handle ObjectId conversions
+            // Personal Information
+            if (studentData.name !== undefined) updateData.name = studentData.name;
+            if (studentData.smartId !== undefined) updateData.smartId = studentData.smartId;
+            if (studentData.dakhelaNumber !== undefined) updateData.dakhelaNumber = studentData.dakhelaNumber;
+            if (studentData.dob !== undefined) updateData.dob = studentData.dob ? new Date(studentData.dob) : null;
+            if (studentData.birthRegistration !== undefined) updateData.birthRegistration = studentData.birthRegistration;
+            if (studentData.gender !== undefined) updateData.gender = studentData.gender;
+            if (studentData.mobile !== undefined) updateData.mobile = studentData.mobile;
+            if (studentData.bloodGroup !== undefined) updateData.bloodGroup = studentData.bloodGroup;
+            if (studentData.attachmentType !== undefined) updateData.attachmentType = studentData.attachmentType;
+
+            // Family Information
+            if (studentData.fatherName !== undefined) updateData.fatherName = studentData.fatherName;
+            if (studentData.motherName !== undefined) updateData.motherName = studentData.motherName;
+            if (studentData.guardianName !== undefined) updateData.guardianName = studentData.guardianName;
+            if (studentData.guardianMobile !== undefined) updateData.guardianMobile = studentData.guardianMobile;
+            if (studentData.relation !== undefined) updateData.relation = studentData.relation;
+            if (studentData.guardianNid !== undefined) updateData.guardianNid = studentData.guardianNid;
+
+            // Address Information
+            if (studentData.permanentVillage !== undefined) updateData.permanentVillage = studentData.permanentVillage;
+            if (studentData.permanentPostOffice !== undefined) updateData.permanentPostOffice = studentData.permanentPostOffice;
+            if (studentData.permanentDistrict !== undefined) updateData.permanentDistrict = studentData.permanentDistrict;
+            if (studentData.permanentThana !== undefined) updateData.permanentThana = studentData.permanentThana;
+            if (studentData.currentVillage !== undefined) updateData.currentVillage = studentData.currentVillage;
+            if (studentData.currentPostOffice !== undefined) updateData.currentPostOffice = studentData.currentPostOffice;
+            if (studentData.currentDistrict !== undefined) updateData.currentDistrict = studentData.currentDistrict;
+            if (studentData.currentThana !== undefined) updateData.currentThana = studentData.currentThana;
+            if (studentData.sameAsPermanent !== undefined) updateData.sameAsPermanent = parseBoolean(studentData.sameAsPermanent);
+
+            // Academic Information
             if (studentData.classId) updateData.classId = new ObjectId(studentData.classId);
-            if (studentData.batchId) updateData.batchId = new ObjectId(studentData.batchId);
-            if (studentData.sectionId) updateData.sectionId = new ObjectId(studentData.sectionId);
-            if (studentData.sessionId) updateData.sessionId = new ObjectId(studentData.sessionId);
-            if (studentData.mentorId) updateData.mentorId = new ObjectId(studentData.mentorId);
+            if (studentData.batchId) updateData.batchId = studentData.batchId ? new ObjectId(studentData.batchId) : null;
+            if (studentData.sectionId) updateData.sectionId = studentData.sectionId ? new ObjectId(studentData.sectionId) : null;
+            if (studentData.sessionId) updateData.sessionId = studentData.sessionId ? new ObjectId(studentData.sessionId) : null;
+            if (studentData.mentorId) updateData.mentorId = studentData.mentorId ? new ObjectId(studentData.mentorId) : null;
+            if (studentData.classRoll !== undefined) updateData.classRoll = parseIntSafe(studentData.classRoll);
+            if (studentData.additionalNote !== undefined) updateData.additionalNote = studentData.additionalNote;
+            if (studentData.status !== undefined) updateData.status = studentData.status;
+            if (studentData.studentType !== undefined) updateData.studentType = studentData.studentType;
 
-            // Handle number conversions
-            if (studentData.classRoll) updateData.classRoll = parseInt(studentData.classRoll);
-            if (studentData.studentSerial) updateData.studentSerial = parseInt(studentData.studentSerial);
-            if (studentData.admissionFee) updateData.admissionFee = parseFloat(studentData.admissionFee);
-            if (studentData.monthlyFee) updateData.monthlyFee = parseFloat(studentData.monthlyFee);
-            if (studentData.previousDues) updateData.previousDues = parseFloat(studentData.previousDues);
-            if (studentData.sessionFee) updateData.sessionFee = parseFloat(studentData.sessionFee);
-            if (studentData.boardingFee) updateData.boardingFee = parseFloat(studentData.boardingFee);
-            if (studentData.otherFee) updateData.otherFee = parseFloat(studentData.otherFee);
-            if (studentData.transportFee) updateData.transportFee = parseFloat(studentData.transportFee);
-            if (studentData.residenceFee) updateData.residenceFee = parseFloat(studentData.residenceFee);
+            // Fee Information
+            if (studentData.admissionFee !== undefined) updateData.admissionFee = parseFloatSafe(studentData.admissionFee);
+            if (studentData.monthlyFee !== undefined) updateData.monthlyFee = parseFloatSafe(studentData.monthlyFee);
+            if (studentData.previousDues !== undefined) updateData.previousDues = parseFloatSafe(studentData.previousDues);
+            if (studentData.sessionFee !== undefined) updateData.sessionFee = parseFloatSafe(studentData.sessionFee);
+            if (studentData.boardingFee !== undefined) updateData.boardingFee = parseFloatSafe(studentData.boardingFee);
+            if (studentData.otherFee !== undefined) updateData.otherFee = parseFloatSafe(studentData.otherFee);
+            if (studentData.transportFee !== undefined) updateData.transportFee = parseFloatSafe(studentData.transportFee);
+            if (studentData.residenceFee !== undefined) updateData.residenceFee = parseFloatSafe(studentData.residenceFee);
 
-            // Handle boolean conversions
-            updateData.sameAsPermanent = studentData.sameAsPermanent === 'true';
-            updateData.sendAdmissionSMS = studentData.sendAdmissionSMS === 'true';
-            updateData.sendAttendanceSMS = studentData.sendAttendanceSMS === 'true';
+            // Other Settings
+            if (studentData.sendAdmissionSMS !== undefined) updateData.sendAdmissionSMS = parseBoolean(studentData.sendAdmissionSMS);
+            if (studentData.studentSerial !== undefined) updateData.studentSerial = parseIntSafe(studentData.studentSerial);
+            if (studentData.sendAttendanceSMS !== undefined) updateData.sendAttendanceSMS = parseBoolean(studentData.sendAttendanceSMS);
 
             // Handle photo update
             if (req.file) {
@@ -467,15 +546,26 @@ module.exports = (studentsCollection, classesCollection, sectionsCollection, bat
             }
 
             // Recalculate total fees
+            const admissionFee = updateData.admissionFee !== undefined ? updateData.admissionFee : existingStudent.admissionFee;
+            const monthlyFee = updateData.monthlyFee !== undefined ? updateData.monthlyFee : existingStudent.monthlyFee;
+            const previousDues = updateData.previousDues !== undefined ? updateData.previousDues : existingStudent.previousDues;
+            const sessionFee = updateData.sessionFee !== undefined ? updateData.sessionFee : existingStudent.sessionFee;
+            const boardingFee = updateData.boardingFee !== undefined ? updateData.boardingFee : existingStudent.boardingFee;
+            const otherFee = updateData.otherFee !== undefined ? updateData.otherFee : existingStudent.otherFee;
+            const transportFee = updateData.transportFee !== undefined ? updateData.transportFee : existingStudent.transportFee;
+            const residenceFee = updateData.residenceFee !== undefined ? updateData.residenceFee : existingStudent.residenceFee;
+
             updateData.totalFees = 
-                (updateData.admissionFee || existingStudent.admissionFee) +
-                (updateData.monthlyFee || existingStudent.monthlyFee) +
-                (updateData.previousDues || existingStudent.previousDues) +
-                (updateData.sessionFee || existingStudent.sessionFee) +
-                (updateData.boardingFee || existingStudent.boardingFee) +
-                (updateData.otherFee || existingStudent.otherFee) +
-                (updateData.transportFee || existingStudent.transportFee) +
-                (updateData.residenceFee || existingStudent.residenceFee);
+                admissionFee +
+                monthlyFee +
+                previousDues +
+                sessionFee +
+                boardingFee +
+                otherFee +
+                transportFee +
+                residenceFee;
+
+            updateData.dueFees = updateData.totalFees - (existingStudent.paidFees || 0);
 
             const result = await studentsCollection.updateOne(
                 { _id: new ObjectId(id) },
@@ -484,7 +574,11 @@ module.exports = (studentsCollection, classesCollection, sectionsCollection, bat
 
             res.json({
                 success: true,
-                message: 'Student updated successfully'
+                message: 'Student updated successfully',
+                data: {
+                    _id: id,
+                    ...updateData
+                }
             });
         } catch (error) {
             if (req.file) {
