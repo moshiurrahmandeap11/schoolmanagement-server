@@ -141,6 +141,21 @@ async function run() {
     const sessionCOllection = db.collection("sessions");
     const batchCollection = db.collection("batch");
     const classReportCollection = db.collection("classreports");
+    const gradingCollection = db.collection("grading");
+    const examRoutineCollection = db.collection("exam-routine");
+    const examCollection = db.collection("exam");
+    const examCategoryCollecton = db.collection("exam-category");
+    const resultsCollection = db.collection("result");
+    const subjectWiseCollection = db.collection("subject-wise");
+    const excelMarksCollection = db.collection("excelMarks");
+    const bankAccountCollection = db.collection("bankAccounts");
+    const incomeSourceCollection = db.collection("income-source");
+    const expenseHeadCollection = db.collection("expenseHead");
+    const expenseCategoryCollection = db.collection("expense-category");
+    const paymentTypeCollection = db.collection("payment-type");
+    const incomeCollection = db.collection("income");
+    const expensesCollection = db.collection("expenses");
+    const annualReportsCollection = db.collection("annual-reports");
 
     // Mount routes with collections - Fixed way
     const usersRouter = require("./routes/users")(usersCollection);
@@ -191,6 +206,21 @@ async function run() {
     const sessionRouter = require("./routes/sessions") (sessionCOllection);
     const batchRouter = require("./routes/batches") (batchCollection);
     const classReportRouter = require("./routes/classreports") (classReportCollection);
+    const gradingRouter = require("./routes/examination/grading") (gradingCollection);
+    const examRoutineRouter = require("./routes/examination/exam-routine") (examRoutineCollection);
+    const examRouter = require("./routes/examination/exam") (examCollection);
+    const examCategoryRouter = require("./routes/exam-category") (examCategoryCollecton);
+    const resultsRouter = require("./routes/examination/results") (resultsCollection);
+    const subjectWiseRouter = require("./routes/examination/subject-wise") (subjectWiseCollection);
+    const excelMarksRouter = require("./routes/examination/excel-marks") (excelMarksCollection);
+    const bankAccountsRouter = require("./routes/accountant/bank-account") (bankAccountCollection);
+    const incomeSourceRouter = require("./routes/accountant/income-source") (incomeSourceCollection);
+    const expenseHeadRouter = require("./routes/accountant/expense-head") (expenseHeadCollection);
+    const expenseCategoryRouter = require("./routes/accountant/expense-category") (expenseCategoryCollection);
+    const paymentTypeRouter = require("./routes/accountant/payment-type") (paymentTypeCollection);
+    const incomeRouter = require("./routes/accountant/income") (incomeCollection);
+    const expensesRouter = require("./routes/accountant/expenses") (expensesCollection);
+    const annualReportsRouter = require("./routes/homePristha/annual-reports") (annualReportsCollection);
 
     app.use("/api/users", usersRouter);
     app.use("/api/banners", bannersRouter);
@@ -239,7 +269,22 @@ async function run() {
     app.use("/api/subjects", subjectsRouter);
     app.use("/api/sessions", sessionRouter);
     app.use("/api/batches", batchRouter);
-    app.use("/api/class-reports", classReportRouter);
+    app.use("/api/class-report", classReportRouter);
+    app.use("/api/grading", gradingRouter);
+    app.use("/api/exam-routine", examRoutineRouter);
+    app.use("/api/exams", examRouter);
+    app.use("/api/exam-categories", examCategoryRouter);
+    app.use("/api/results", resultsRouter);
+    app.use("/api/subject-wise", subjectWiseRouter);
+    app.use("/api/excel-marks", excelMarksRouter);
+    app.use("/api/bank-accounts", bankAccountsRouter);
+    app.use("/api/income-sources", incomeSourceRouter);
+    app.use("/api/expense-heads", expenseHeadRouter);
+    app.use("/api/expense-category", expenseCategoryRouter);
+    app.use("/api/payment-types", paymentTypeRouter);
+    app.use("/api/incomes", incomeRouter);
+    app.use("/api/expenses", expensesRouter);
+    app.use("/api/annual-reports", annualReportsRouter);
 
     // Health check route
     app.get("/health", (req, res) => {

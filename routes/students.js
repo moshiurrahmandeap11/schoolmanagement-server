@@ -36,6 +36,113 @@ const upload = multer({
 
 module.exports = (studentsCollection, classesCollection, sectionsCollection, batchesCollection, sessionsCollection, teachersCollection) => {
 
+
+    // GET single student by studentId
+    router.get('/:studentId', async (req, res) => {
+        try {
+            const { studentId } = req.params;
+
+            const student = await studentsCollection.aggregate([
+                {
+                    $match: { studentId: studentId }
+                },
+                {
+                    $lookup: {
+                        from: 'classes',
+                        localField: 'classId',
+                        foreignField: '_id',
+                        as: 'class'
+                    }
+                },
+                {
+                    $lookup: {
+                        from: 'sections',
+                        localField: 'sectionId',
+                        foreignField: '_id',
+                        as: 'section'
+                    }
+                },
+                {
+                    $lookup: {
+                        from: 'batches',
+                        localField: 'batchId',
+                        foreignField: '_id',
+                        as: 'batch'
+                    }
+                },
+                {
+                    $lookup: {
+                        from: 'sessions',
+                        localField: 'sessionId',
+                        foreignField: '_id',
+                        as: 'session'
+                    }
+                },
+                {
+                    $unwind: {
+                        path: '$class',
+                        preserveNullAndEmptyArrays: true
+                    }
+                },
+                {
+                    $unwind: {
+                        path: '$section',
+                        preserveNullAndEmptyArrays: true
+                    }
+                },
+                {
+                    $unwind: {
+                        path: '$batch',
+                        preserveNullAndEmptyArrays: true
+                    }
+                },
+                {
+                    $unwind: {
+                        path: '$session',
+                        preserveNullAndEmptyArrays: true
+                    }
+                },
+                {
+                    $project: {
+                        studentId: 1,
+                        smartId: 1,
+                        name: 1,
+                        classRoll: 1,
+                        mobile: 1,
+                        fatherName: 1,
+                        motherName: 1,
+                        photo: 1,
+                        status: 1,
+                        'class.name': 1,
+                        'section.name': 1,
+                        'batch.name': 1,
+                        'session.name': 1,
+                        createdAt: 1
+                    }
+                }
+            ]).toArray();
+
+            if (!student || student.length === 0) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Student not found'
+                });
+            }
+
+            res.json({
+                success: true,
+                data: student[0]
+            });
+        } catch (error) {
+            console.error('Error fetching student:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error fetching student',
+                error: error.message
+            });
+        }
+    });
+
     // GET all students with filtering
     router.get('/', async (req, res) => {
         try {
