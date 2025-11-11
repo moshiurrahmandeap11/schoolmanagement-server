@@ -156,6 +156,20 @@ async function run() {
     const incomeCollection = db.collection("income");
     const expensesCollection = db.collection("expenses");
     const annualReportsCollection = db.collection("annual-reports");
+    const contactCollection = db.collection("contact");
+    const classCollection = db.collection("class");
+    const classTeacherCollection = db.collection("class-teacher");
+    const dividePathokromCollectin = db.collection("divide-pathokrom");
+    const migrateStatusCollection = db.collection("migrate-status");
+    const migrateBranchesCollection = db.collection("migrate-branches");
+    const studentLeaveCollection = db.collection("student-leave");
+    const fineTypeCollection = db.collection("fine-type");
+    const feeTypeCollection = db.collection("fee-type");
+    const discountCollection = db.collection("discount");
+    const feeCollection = db.collection("fee");
+    const addDiscountCollection = db.collection("add-discount");
+    const assignFinesCollection = db.collection("assign-fines");
+    const feeSettingsCollection = db.collection("fee-settings");
 
     // Mount routes with collections - Fixed way
     const usersRouter = require("./routes/users")(usersCollection);
@@ -221,6 +235,20 @@ async function run() {
     const incomeRouter = require("./routes/accountant/income") (incomeCollection);
     const expensesRouter = require("./routes/accountant/expenses") (expensesCollection);
     const annualReportsRouter = require("./routes/homePristha/annual-reports") (annualReportsCollection);
+    const contactROuter = require("./routes/homePristha/contact") (contactCollection);
+    const classRouter = require("./routes/class/class") (classCollection);
+    const classTeacherRouter = require("./routes/class/class-teacher") (classTeacherCollection);
+    const dividePathokromRouter = require("./routes/class/divide-pathokrom") (dividePathokromCollectin);
+    const migrateStatusRouter = require("./routes/students/migrate-status") (migrateStatusCollection, studentsCollection);
+    const migrateBranchesRouter = require("./routes/students/migrate-branches") (migrateBranchesCollection);
+    const studentLeaveRouter = require("./routes/students/student-leave") (studentLeaveCollection, studentsCollection);
+    const fineTypeRouter = require("./routes/fees/fine-type") (fineTypeCollection);
+    const feeTypeRouter = require("./routes/fees/fee-type") (feeTypeCollection);
+    const discountRouter = require("./routes/fees/discount") (discountCollection);
+    const feeRouter = require("./routes/fees/fee") (feeCollection);
+    const addDiscountRouter = require("./routes/fees/add-discount") (addDiscountCollection);
+    const assignFinesRouter = require("./routes/fees/assign-fines") (assignFinesCollection);
+    const feeSettingsRouter = require("./routes/fees/fee-settings") (feeSettingsCollection);
 
     app.use("/api/users", usersRouter);
     app.use("/api/banners", bannersRouter);
@@ -285,6 +313,20 @@ async function run() {
     app.use("/api/incomes", incomeRouter);
     app.use("/api/expenses", expensesRouter);
     app.use("/api/annual-reports", annualReportsRouter);
+    app.use("/api/contact", contactROuter);
+    app.use("/api/class", classRouter);
+    app.use("/api/class-teachers", classTeacherRouter);
+    app.use("/api/divide-pathokrom", dividePathokromRouter);
+    app.use("/api/migrate-status", migrateStatusRouter);
+    app.use("/api/migrate-branches", migrateBranchesRouter);
+    app.use("/api/student-leave", studentLeaveRouter);
+    app.use("/api/fine-types", fineTypeRouter);
+    app.use("/api/fee-types", feeTypeRouter);
+    app.use("/api/discount", discountRouter);
+    app.use("/api/fee", feeRouter);
+    app.use("/api/discounts", addDiscountRouter);
+    app.use("/api/assign-fines", assignFinesRouter);
+    app.use("/api/fee-settings", feeSettingsRouter);
 
     // Health check route
     app.get("/health", (req, res) => {
