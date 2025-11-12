@@ -95,7 +95,17 @@ module.exports = (teachersListCollection) => {
                 salary, 
                 position,
                 session,
-                staffType
+                staffType,
+                // নতুন শিফট ফিল্ডগুলো
+                shiftName,
+                teacherEntryTime,
+                teacherExitTime,
+                countLateAfter,
+                countEarlyExitBefore,
+                sendSms,
+                smsType,
+                timezone,
+                absentAfter
             } = req.body;
 
             // Validation - updated required fields
@@ -157,6 +167,16 @@ module.exports = (teachersListCollection) => {
                 position: position || 'Active',
                 session: session?.trim() || '',
                 staffType: staffType || 'Teacher',
+                // নতুন শিফট ফিল্ডগুলো
+                shiftName: shiftName?.trim() || '',
+                teacherEntryTime: teacherEntryTime || '',
+                teacherExitTime: teacherExitTime || '',
+                countLateAfter: countLateAfter || '',
+                countEarlyExitBefore: countEarlyExitBefore || '',
+                sendSms: sendSms === 'true' || sendSms === true,
+                smsType: smsType || '',
+                timezone: timezone || 'Asia/Dhaka',
+                absentAfter: absentAfter || '',
                 photo: req.file ? `/api/uploads/teacher-photos/${req.file.filename}` : '',
                 photoOriginalName: req.file ? req.file.originalname : '',
                 isActive: position !== 'Deactivated', // Automatically set isActive based on position
@@ -202,7 +222,17 @@ module.exports = (teachersListCollection) => {
                 salary, 
                 position,
                 session,
-                staffType
+                staffType,
+                // নতুন শিফট ফিল্ডগুলো
+                shiftName,
+                teacherEntryTime,
+                teacherExitTime,
+                countLateAfter,
+                countEarlyExitBefore,
+                sendSms,
+                smsType,
+                timezone,
+                absentAfter
             } = req.body;
 
             // Validation - updated required fields
@@ -274,6 +304,16 @@ module.exports = (teachersListCollection) => {
                 position: position || 'Active',
                 session: session?.trim() || '',
                 staffType: staffType || 'Teacher',
+                // নতুন শিফট ফিল্ডগুলো
+                shiftName: shiftName?.trim() || '',
+                teacherEntryTime: teacherEntryTime || '',
+                teacherExitTime: teacherExitTime || '',
+                countLateAfter: countLateAfter || '',
+                countEarlyExitBefore: countEarlyExitBefore || '',
+                sendSms: sendSms === 'true' || sendSms === true,
+                smsType: smsType || '',
+                timezone: timezone || 'Asia/Dhaka',
+                absentAfter: absentAfter || '',
                 isActive: position !== 'Deactivated', // Automatically set isActive based on position
                 updatedAt: new Date()
             };
@@ -422,7 +462,8 @@ module.exports = (teachersListCollection) => {
                 query.$or = [
                     { smartId: new RegExp(search, 'i') },
                     { name: new RegExp(search, 'i') },
-                    { fingerId: new RegExp(search, 'i') }
+                    { fingerId: new RegExp(search, 'i') },
+                    { shiftName: new RegExp(search, 'i') }
                 ];
             }
             
@@ -500,6 +541,31 @@ module.exports = (teachersListCollection) => {
             res.status(500).json({
                 success: false,
                 message: 'Failed to toggle teacher status'
+            });
+        }
+    });
+
+    // GET teachers with shifts only
+    router.get('/shifts/with-shifts', async (req, res) => {
+        try {
+            const teachersWithShifts = await teachersListCollection.find({
+                $or: [
+                    { shiftName: { $ne: '', $exists: true } },
+                    { teacherEntryTime: { $ne: '', $exists: true } },
+                    { teacherExitTime: { $ne: '', $exists: true } }
+                ]
+            }).toArray();
+
+            res.json({
+                success: true,
+                data: teachersWithShifts,
+                count: teachersWithShifts.length
+            });
+        } catch (error) {
+            console.error('Error fetching teachers with shifts:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Failed to fetch teachers with shifts'
             });
         }
     });

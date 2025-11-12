@@ -170,6 +170,13 @@ async function run() {
     const addDiscountCollection = db.collection("add-discount");
     const assignFinesCollection = db.collection("assign-fines");
     const feeSettingsCollection = db.collection("fee-settings");
+    const expenseItemCollection = db.collection("expense-items");
+    const smartAttendanceCollection = db.collection("smart-attendance");
+    const smartAttendanceShiftCollection = db.collection("smart-attendance-shift");
+    const holidaysCollection = db.collection("holidays")
+    const holidayTypeCollection = db.collection("holiday-type");
+    const teacherLeaveCollection = db.collection("teacher-leave")
+    const employeeLeaveCollection = db.collection("employee-leave");
 
     // Mount routes with collections - Fixed way
     const usersRouter = require("./routes/users")(usersCollection);
@@ -249,6 +256,13 @@ async function run() {
     const addDiscountRouter = require("./routes/fees/add-discount") (addDiscountCollection);
     const assignFinesRouter = require("./routes/fees/assign-fines") (assignFinesCollection);
     const feeSettingsRouter = require("./routes/fees/fee-settings") (feeSettingsCollection);
+    const expenseItemsRouter = require("./routes/hisab/expense-items") (expenseItemCollection);
+    const smartAttendanceRouter = require("./routes/Attendance/smart-attendance") (smartAttendanceCollection);
+    const smartAttendanceShiftRouter = require("./routes/Attendance/smart-attendance-shift") (smartAttendanceShiftCollection);
+    const holidaysRouternew = require("./routes/Attendance/holiday") (holidaysCollection);
+    const holidayTypeRouter = require("./routes/Attendance/holiday-type") (holidayTypeCollection);
+    const teacherLeaveRouter = require("./routes/Attendance/teacher-leave") (teacherLeaveCollection, teachersListCollection)
+    const employeeLeaveRouter = require("./routes/Attendance/employee-leave") (employeeLeaveCollection);
 
     app.use("/api/users", usersRouter);
     app.use("/api/banners", bannersRouter);
@@ -327,6 +341,13 @@ async function run() {
     app.use("/api/discounts", addDiscountRouter);
     app.use("/api/assign-fines", assignFinesRouter);
     app.use("/api/fee-settings", feeSettingsRouter);
+    app.use("/api/expense-items", expenseItemsRouter);
+    app.use("/api/smart-attendance", smartAttendanceRouter);
+    app.use("/api/smart-attendance-shift", smartAttendanceShiftRouter);
+    app.use("/api/holidays", holidaysRouternew);
+    app.use("/api/holiday-type", holidayTypeRouter);
+    app.use("/api/teacher-leave", teacherLeaveRouter);
+    app.use("/api/employee-leave", employeeLeaveRouter);
 
     // Health check route
     app.get("/health", (req, res) => {
