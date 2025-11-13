@@ -177,6 +177,18 @@ async function run() {
     const holidayTypeCollection = db.collection("holiday-type");
     const teacherLeaveCollection = db.collection("teacher-leave")
     const employeeLeaveCollection = db.collection("employee-leave");
+    const examGroupCollection = db.collection("exam-gruop");
+    const examHallCollection = db.collection("exam-hall");
+    const examTimeTableCollection = db.collection("exam-timetable");
+    const examArrangementCollection = db.collection("exam-arrangement");
+    const combinedResultCollection = db.collection("combined-result");
+    const resultSheetCollection = db.collection("result-sheet");
+    const sendsmsCollection = db.collection("sms");
+    const smsBalanceCollection = db.collection('smsbalance');
+const smsPurchaseCollection = db.collection('smspurchases');
+const instituteMessageCollection = db.collection("institute-messages");
+const contactMainCollection = db.collection("contact-main");
+const instituteServicesCollection = db.collection("institute-services");
 
     // Mount routes with collections - Fixed way
     const usersRouter = require("./routes/users")(usersCollection);
@@ -263,6 +275,17 @@ async function run() {
     const holidayTypeRouter = require("./routes/Attendance/holiday-type") (holidayTypeCollection);
     const teacherLeaveRouter = require("./routes/Attendance/teacher-leave") (teacherLeaveCollection, teachersListCollection)
     const employeeLeaveRouter = require("./routes/Attendance/employee-leave") (employeeLeaveCollection);
+    const examGroupRouter = require("./routes/examination/exam-group") (examGroupCollection);
+    const examHallRouter = require("./routes/seatplan/exam-hall") (examHallCollection);
+    const examTimeTableRouter = require("./routes/seatplan/exam-timetable") (examTimeTableCollection);
+    const examArrangementRouter = require("./routes/seatplan/exam-arrangement") (examArrangementCollection);
+    const combinedResultRouter = require("./routes/results/combined-result") (combinedResultCollection);
+    const resultSheetRouter = require("./routes/results/result-sheet") (resultSheetCollection);
+    const sendsmsCollectionRouter = require("./routes/sms/send-instant-sms") (sendsmsCollection);
+    const smsBalanceRouter = require('./routes/sms/smsBalanceRoutes')(smsBalanceCollection, smsPurchaseCollection);
+    const instituteMessageRouter = require("./routes/institute/institute-messages") (instituteMessageCollection);
+    const contactMainRouter = require("./routes/institute/contact-main") (contactMainCollection);
+    const instituteServicesRouter = require("./routes/institute/institute-services") (instituteServicesCollection);
 
     app.use("/api/users", usersRouter);
     app.use("/api/banners", bannersRouter);
@@ -348,6 +371,17 @@ async function run() {
     app.use("/api/holiday-type", holidayTypeRouter);
     app.use("/api/teacher-leave", teacherLeaveRouter);
     app.use("/api/employee-leave", employeeLeaveRouter);
+    app.use("/api/exam-group", examGroupRouter);
+    app.use("/api/exam-hall", examHallRouter);
+    app.use("/api/exam-timetable", examTimeTableRouter);
+    app.use("/api/seat-arrangement", examArrangementRouter);
+    app.use("/api/combined-result", combinedResultRouter);
+    app.use("/api/result-sheet", resultSheetRouter);
+    app.use("/api/sms", sendsmsCollectionRouter);
+    app.use("/api/sms-balance", smsBalanceRouter);
+    app.use("/api/institute-messages", instituteMessageRouter);
+    app.use("/api/contact-main", contactMainRouter);
+    app.use("/api/institute-services", instituteServicesRouter);
 
     // Health check route
     app.get("/health", (req, res) => {
