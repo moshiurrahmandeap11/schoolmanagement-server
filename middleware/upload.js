@@ -16,19 +16,25 @@ const storage = multer.diskStorage({
     filename: function (req, file, cb) {
         // Unique filename with timestamp
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+        const ext = path.extname(file.originalname);
+        cb(null, file.fieldname + '-' + uniqueSuffix + ext);
     }
 });
 
-// File filter - ALL file types allow korbo
+// File filter - Allow image files and documents
 const fileFilter = (req, file, cb) => {
-    // Allow all file types
+    // Allowed MIME types
     const allowedMimes = [
+        // Images
         'image/jpeg',
         'image/jpg', 
         'image/png',
         'image/gif',
         'image/webp',
+        'image/bmp',
+        'image/tiff',
+        'image/svg+xml',
+        // Documents
         'application/pdf',
         'application/msword',
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -36,13 +42,29 @@ const fileFilter = (req, file, cb) => {
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         'application/vnd.ms-powerpoint',
         'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-        'text/plain'
+        'text/plain',
+        'text/csv',
+        // Sometimes MIME type can be octet-stream
+        'application/octet-stream'
     ];
 
-    if (allowedMimes.includes(file.mimetype)) {
+    // Check file extension as fallback
+    const allowedExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', 
+                               '.pdf', '.doc', '.docx', '.xls', '.xlsx', 
+                               '.ppt', '.pptx', '.txt', '.csv'];
+    
+    const fileExt = path.extname(file.originalname).toLowerCase();
+
+    // Log for debugging
+    console.log('File MIME type:', file.mimetype);
+    console.log('File extension:', fileExt);
+    console.log('Original filename:', file.originalname);
+
+    // Check either by MIME type or extension
+    if (allowedMimes.includes(file.mimetype) || allowedExtensions.includes(fileExt)) {
         cb(null, true);
     } else {
-        cb(new Error('অনুমোদিত ফাইল ফরম্যাট নয়'), false);
+        cb(new Error(`অনুমোদিত ফাইল ফরম্যাট নয়। শুধুমাত্র ছবি (JPG, PNG, WebP ইত্যাদি) এবং ডকুমেন্ট (PDF, DOC ইত্যাদি) অনুমোদিত।`), false);
     }
 };
 
