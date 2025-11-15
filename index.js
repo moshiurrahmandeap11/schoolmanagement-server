@@ -201,6 +201,7 @@ async function run() {
     const instituteVideoCollection = db.collection("institute-video");
     const basicSettingsCollection = db.collection("basic-settings");
     const advanceFeesCollection = db.collection("advance-fees");
+    const subjectWiseCollections = db.collection("subjectwise-attendance");
 
 
 
@@ -456,6 +457,7 @@ async function run() {
     const instituteVideoRouter = require("./routes/instituteMedia/institute-video") (instituteVideoCollection);
     const basicSettingsRouter = require("./routes/settings/basic-settings") (basicSettingsCollection);
     const advanceFeesRouter = require("./routes/fees/advance-fees") (advanceFeesCollection);
+    const subjectWiseRouters = require("./routes/Attendance/subjectwise-attendance") (subjectWiseCollections);
 
     app.use("/api/users", usersRouter);
     app.use("/api/banners", bannersRouter);
@@ -562,6 +564,7 @@ async function run() {
     app.use("/api/institute-video", instituteVideoRouter);
     app.use("/api/basic-settings", basicSettingsRouter);
     app.use("/api/advance-fees", advanceFeesRouter);
+    app.use("/api/subjectwise-attendance", subjectWiseRouters);
 
     // Health check route
     app.get("/health", (req, res) => {
