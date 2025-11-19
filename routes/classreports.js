@@ -336,5 +336,43 @@ module.exports = (classReportCollection) => {
         }
     });
 
+    // DELETE single class report
+router.delete('/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        if (!ObjectId.isValid(id)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid report ID'
+            });
+        }
+
+        const result = await classReportCollection.deleteOne({ _id: new ObjectId(id) });
+
+        if (result.deletedCount === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Class report not found'
+            });
+        }
+
+        res.json({
+            success: true,
+            message: 'Class report deleted successfully',
+            deletedId: id
+        });
+
+    } catch (error) {
+        console.error('Error deleting class report:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error deleting class report',
+            error: error.message
+        });
+    }
+});
+
+
     return router;
 };
