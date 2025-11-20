@@ -202,6 +202,8 @@ async function run() {
     const basicSettingsCollection = db.collection("basic-settings");
     const advanceFeesCollection = db.collection("advance-fees");
     const subjectWiseCollections = db.collection("subjectwise-attendance");
+    const admitCardCollection = db.collection("admit-card");
+    const admissionTokenCollection = db.collection("admission-token");
 
 
 
@@ -458,6 +460,8 @@ async function run() {
     const basicSettingsRouter = require("./routes/settings/basic-settings") (basicSettingsCollection);
     const advanceFeesRouter = require("./routes/fees/advance-fees") (advanceFeesCollection);
     const subjectWiseRouters = require("./routes/Attendance/subjectwise-attendance") (subjectWiseCollections);
+    const admitCardRouter = require("./routes/print/admit-card") (admitCardCollection);
+    const admissionTokenRouter = require("./routes/print/admission-token") (admissionTokenCollection);
 
     app.use("/api/users", usersRouter);
     app.use("/api/banners", bannersRouter);
@@ -565,6 +569,8 @@ async function run() {
     app.use("/api/basic-settings", basicSettingsRouter);
     app.use("/api/advance-fees", advanceFeesRouter);
     app.use("/api/subjectwise-attendance", subjectWiseRouters);
+    app.use("/api/admit-card", admitCardRouter);
+    app.use("/api/admission-token", admissionTokenRouter);
 
     // Health check route
     app.get("/health", (req, res) => {
