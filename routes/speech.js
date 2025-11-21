@@ -61,7 +61,7 @@ module.exports = (speechCollection) => {
                 });
             }
 
-            const imageUrl = `/uploads/${req.file.filename}`;
+            const imageUrl = `/api/uploads/${req.file.filename}`; // ✅ Banner.js এর মতো
             
             res.status(200).json({
                 success: true,
@@ -73,7 +73,10 @@ module.exports = (speechCollection) => {
         } catch (error) {
             // Delete uploaded file if error occurs
             if (req.file) {
-                fs.unlinkSync(req.file.path);
+                const filePath = path.join(__dirname, '..', 'uploads', req.file.filename);
+                if (fs.existsSync(filePath)) {
+                    fs.unlinkSync(filePath);
+                }
             }
             res.status(500).json({
                 success: false,
@@ -92,7 +95,10 @@ module.exports = (speechCollection) => {
             if (!type || !body) {
                 // Delete uploaded file if validation fails
                 if (req.file) {
-                    fs.unlinkSync(req.file.path);
+                    const filePath = path.join(__dirname, '..', 'uploads', req.file.filename);
+                    if (fs.existsSync(filePath)) {
+                        fs.unlinkSync(filePath);
+                    }
                 }
                 return res.status(400).json({
                     success: false,
@@ -104,7 +110,10 @@ module.exports = (speechCollection) => {
             const existingSpeech = await speechCollection.findOne({ type });
             if (existingSpeech) {
                 if (req.file) {
-                    fs.unlinkSync(req.file.path);
+                    const filePath = path.join(__dirname, '..', 'uploads', req.file.filename);
+                    if (fs.existsSync(filePath)) {
+                        fs.unlinkSync(filePath);
+                    }
                 }
                 return res.status(400).json({
                     success: false,
@@ -114,7 +123,10 @@ module.exports = (speechCollection) => {
 
             const newSpeech = {
                 type,
-                image: req.file ? `/uploads/${req.file.filename}` : '',
+                image: req.file ? `/api/uploads/${req.file.filename}` : '', // ✅ Banner.js এর মতো
+                imageOriginalName: req.file ? req.file.originalname : '',
+                imageSize: req.file ? req.file.size : 0,
+                imageMimeType: req.file ? req.file.mimetype : '',
                 body,
                 isActive: true,
                 createdAt: new Date(),
@@ -134,7 +146,10 @@ module.exports = (speechCollection) => {
         } catch (error) {
             // Delete uploaded file if error occurs
             if (req.file) {
-                fs.unlinkSync(req.file.path);
+                const filePath = path.join(__dirname, '..', 'uploads', req.file.filename);
+                if (fs.existsSync(filePath)) {
+                    fs.unlinkSync(filePath);
+                }
             }
             res.status(500).json({
                 success: false,
@@ -157,7 +172,10 @@ module.exports = (speechCollection) => {
             if (!existingSpeech) {
                 // Delete uploaded file if speech not found
                 if (req.file) {
-                    fs.unlinkSync(req.file.path);
+                    const filePath = path.join(__dirname, '..', 'uploads', req.file.filename);
+                    if (fs.existsSync(filePath)) {
+                        fs.unlinkSync(filePath);
+                    }
                 }
                 return res.status(404).json({
                     success: false,
@@ -173,13 +191,18 @@ module.exports = (speechCollection) => {
             // Handle image update
             if (req.file) {
                 // Delete old image if exists
-                if (existingSpeech.image) {
-                    const oldImagePath = path.join(__dirname, '..', existingSpeech.image);
+                if (existingSpeech.image && existingSpeech.image.startsWith('/api/uploads/')) {
+                    const oldFilename = existingSpeech.image.replace('/api/uploads/', '');
+                    const oldImagePath = path.join(__dirname, '..', 'uploads', oldFilename);
                     if (fs.existsSync(oldImagePath)) {
                         fs.unlinkSync(oldImagePath);
                     }
                 }
-                updateData.image = `/uploads/${req.file.filename}`;
+                
+                updateData.image = `/api/uploads/${req.file.filename}`; // ✅ Banner.js এর মতো
+                updateData.imageOriginalName = req.file.originalname;
+                updateData.imageSize = req.file.size;
+                updateData.imageMimeType = req.file.mimetype;
             }
 
             const result = await speechCollection.updateOne(
@@ -198,7 +221,10 @@ module.exports = (speechCollection) => {
         } catch (error) {
             // Delete uploaded file if error occurs
             if (req.file) {
-                fs.unlinkSync(req.file.path);
+                const filePath = path.join(__dirname, '..', 'uploads', req.file.filename);
+                if (fs.existsSync(filePath)) {
+                    fs.unlinkSync(filePath);
+                }
             }
             res.status(500).json({
                 success: false,
@@ -220,12 +246,13 @@ module.exports = (speechCollection) => {
                 return res.status(404).json({
                     success: false,
                     message: 'স্পিচ পাওয়া যায়নি'
-                    });
+                });
             }
 
             // Delete featured image file
-            if (speech.image) {
-                const imagePath = path.join(__dirname, '..', speech.image);
+            if (speech.image && speech.image.startsWith('/api/uploads/')) {
+                const filename = speech.image.replace('/api/uploads/', '');
+                const imagePath = path.join(__dirname, '..', 'uploads', filename);
                 if (fs.existsSync(imagePath)) {
                     fs.unlinkSync(imagePath);
                 }
@@ -239,8 +266,9 @@ module.exports = (speechCollection) => {
                 while ((match = imgRegex.exec(speech.body)) !== null) {
                     const imgUrl = match[1];
                     // Check if it's a local upload (not external URL or base64)
-                    if (imgUrl.startsWith('/uploads/')) {
-                        const imgPath = path.join(__dirname, '..', imgUrl);
+                    if (imgUrl.startsWith('/api/uploads/')) {
+                        const filename = imgUrl.replace('/api/uploads/', '');
+                        const imgPath = path.join(__dirname, '..', 'uploads', filename);
                         if (fs.existsSync(imgPath)) {
                             fs.unlinkSync(imgPath);
                         }

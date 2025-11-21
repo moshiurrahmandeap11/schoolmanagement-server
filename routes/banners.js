@@ -24,54 +24,63 @@ module.exports = (bannersCollection) => {
         }
     });
 
-    // CREATE new banner with file upload
-    router.post('/', upload.single('image'), async (req, res) => {
-        try {
-            const { title, link, isActive } = req.body;
+// CREATE new banner with file upload
+router.post('/', upload.single('image'), async (req, res) => {
+    try {
+        const { title, link, isActive } = req.body;
 
-            // Validation
-            if (!title) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'টাইটেল আবশ্যক'
-                });
-            }
-
-            if (!req.file) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'ইমেজ ফাইল আবশ্যক'
-                });
-            }
-
-            const newBanner = {
-                title,
-                image: `/api/uploads/${req.file.filename}`, // EI LINE THIK KORTE HOBE
-                imageOriginalName: req.file.originalname,
-                link: link || '',
-                isActive: isActive !== undefined ? JSON.parse(isActive) : true,
-                createdAt: new Date(),
-                updatedAt: new Date()
-            };
-
-            const result = await bannersCollection.insertOne(newBanner);
-            
-            res.status(201).json({
-                success: true,
-                message: 'ব্যানার সফলভাবে তৈরি হয়েছে',
-                data: {
-                    _id: result.insertedId,
-                    ...newBanner
-                }
-            });
-        } catch (error) {
-            res.status(500).json({
+        if (!title) {
+            return res.status(400).json({
                 success: false,
-                message: 'ব্যানার তৈরি করতে সমস্যা হয়েছে',
-                error: error.message
+                message: 'টাইটেল আবশ্যক'
             });
         }
-    });
+
+        if (!req.file) {
+            return res.status(400).json({
+                success: false,
+                message: 'ইমেজ ফাইল আবশ্যক'
+            });
+        }
+
+        const newBanner = {
+            title,
+            image: `/api/uploads/${req.file.filename}`, // ✅ এটা ঠিক আছে
+            imageOriginalName: req.file.originalname,
+            imageSize: req.file.size, // ফাইল সাইজ যোগ করলাম
+            imageMimeType: req.file.mimetype, // MIME type যোগ করলাম
+            link: link || '',
+            isActive: isActive !== undefined ? JSON.parse(isActive) : true,
+            createdAt: new Date(),
+            updatedAt: new Date()
+        };
+
+        const result = await bannersCollection.insertOne(newBanner);
+        
+        res.status(201).json({
+            success: true,
+            message: 'ব্যানার সফলভাবে তৈরি হয়েছে',
+            data: {
+                _id: result.insertedId,
+                ...newBanner
+            }
+        });
+    } catch (error) {
+        // যদি error হয় তাহলে uploaded file delete করো
+        if (req.file) {
+            const filePath = path.join(__dirname, '..', 'uploads', req.file.filename);
+            if (fs.existsSync(filePath)) {
+                fs.unlinkSync(filePath);
+            }
+        }
+        
+        res.status(500).json({
+            success: false,
+            message: 'ব্যানার তৈরি করতে সমস্যা হয়েছে',
+            error: error.message
+        });
+    }
+});
 
     // DELETE banner
     router.delete('/:id', async (req, res) => {

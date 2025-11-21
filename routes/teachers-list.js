@@ -7,10 +7,18 @@ const { ObjectId } = require('mongodb');
 
 module.exports = (teachersListCollection) => {
 
-    // Configure multer for teacher photos
+    // Configure multer for teacher photos and certificates
     const storage = multer.diskStorage({
         destination: function (req, file, cb) {
-            const uploadDir = path.join(__dirname, '../uploads/teacher-photos');
+            let uploadDir;
+            if (file.fieldname === 'photo') {
+                uploadDir = path.join(__dirname, '../uploads/teacher-photos');
+            } else if (file.fieldname === 'certificateImage1' || file.fieldname === 'certificateImage2') {
+                uploadDir = path.join(__dirname, '../uploads/teacher-certificates');
+            } else {
+                uploadDir = path.join(__dirname, '../uploads/teacher-documents');
+            }
+            
             if (!fs.existsSync(uploadDir)) {
                 fs.mkdirSync(uploadDir, { recursive: true });
             }
@@ -18,15 +26,33 @@ module.exports = (teachersListCollection) => {
         },
         filename: function (req, file, cb) {
             const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-            cb(null, 'teacher-' + uniqueSuffix + path.extname(file.originalname));
+            if (file.fieldname === 'photo') {
+                cb(null, 'teacher-photo-' + uniqueSuffix + path.extname(file.originalname));
+            } else if (file.fieldname === 'certificateImage1') {
+                cb(null, 'certificate1-' + uniqueSuffix + path.extname(file.originalname));
+            } else if (file.fieldname === 'certificateImage2') {
+                cb(null, 'certificate2-' + uniqueSuffix + path.extname(file.originalname));
+            } else {
+                cb(null, 'document-' + uniqueSuffix + path.extname(file.originalname));
+            }
         }
     });
 
     const fileFilter = (req, file, cb) => {
-        if (file.mimetype.startsWith('image/')) {
-            cb(null, true);
+        if (file.fieldname === 'photo') {
+            if (file.mimetype.startsWith('image/')) {
+                cb(null, true);
+            } else {
+                cb(new Error('Only image files are allowed for photos'), false);
+            }
+        } else if (file.fieldname === 'certificateImage1' || file.fieldname === 'certificateImage2') {
+            if (file.mimetype.startsWith('image/') || file.mimetype === 'application/pdf') {
+                cb(null, true);
+            } else {
+                cb(new Error('Only image and PDF files are allowed for certificates'), false);
+            }
         } else {
-            cb(new Error('Only image files are allowed'), false);
+            cb(null, true);
         }
     };
 
@@ -34,7 +60,7 @@ module.exports = (teachersListCollection) => {
         storage: storage,
         fileFilter: fileFilter,
         limits: {
-            fileSize: 2 * 1024 * 1024 // 2MB
+            fileSize: 5 * 1024 * 1024 // 5MB
         }
     });
 
@@ -82,56 +108,101 @@ module.exports = (teachersListCollection) => {
         }
     });
 
-    // CREATE new teacher with file upload - UPDATED FIELDS
-    router.post('/', upload.single('photo'), async (req, res) => {
+    // CREATE new teacher with file upload - UPDATED WITH ALL NEW FIELDS
+    router.post('/', upload.fields([
+        { name: 'photo', maxCount: 1 },
+        { name: 'certificateImage1', maxCount: 1 },
+        { name: 'certificateImage2', maxCount: 1 }
+    ]), async (req, res) => {
         try {
             const { 
+                // Personal Information
+                teacherId,
+                personalPhone,
+                teacherSerial,
+                teacherEmail,
                 smartId,
-                fingerId,
-                name, 
-                mobile, 
+                bloodGroup,
+                name,
+                gender,
+                englishName,
+                dob,
+
+                // Address Information
+                permanentVillage,
+                permanentPostOffice,
+                permanentThana,
+                permanentDistrict,
+                currentVillage,
+                currentPostOffice,
+                currentThana,
+                currentDistrict,
+                sameAsPermanent,
+
+                // Professional Information
                 designation,
-                biboron,
-                salary, 
-                position,
-                session,
+                monthlySalary,
+                department,
                 staffType,
-                // নতুন শিফট ফিল্ডগুলো
-                shiftName,
-                teacherEntryTime,
-                teacherExitTime,
-                countLateAfter,
-                countEarlyExitBefore,
-                sendSms,
-                smsType,
-                timezone,
-                absentAfter
+                joiningDate,
+                residenceType,
+
+                // Additional Information
+                guardianPhone,
+                youtubeChannel,
+                facebookProfile,
+                position,
+                twitterProfile,
+                language,
+
+                // Session Information
+                session,
+
+                // Certificate Information
+                certificateName1,
+                certificateName2,
+
+                // Existing fields
+                fingerId,
+                biboron,
+                salary
             } = req.body;
 
             // Validation - updated required fields
-            if (!name || !mobile) {
+            if (!name || !personalPhone) {
                 return res.status(400).json({
                     success: false,
-                    message: 'Name and mobile are required fields'
+                    message: 'Name and personal phone are required fields'
                 });
             }
 
-            // Check if mobile already exists
-            const existingTeacher = await teachersListCollection.findOne({ mobile });
+            // Check if personal phone already exists
+            const existingTeacher = await teachersListCollection.findOne({ personalPhone });
             if (existingTeacher) {
                 return res.status(400).json({
                     success: false,
-                    message: 'A teacher with this mobile number already exists'
+                    message: 'A teacher with this personal phone number already exists'
                 });
             }
 
             // Mobile number validation
             const mobileRegex = /^[0-9]{11}$/;
-            if (!mobileRegex.test(mobile)) {
+            if (!mobileRegex.test(personalPhone)) {
                 return res.status(400).json({
                     success: false,
                     message: 'Please enter a valid 11-digit mobile number'
                 });
+            }
+
+            // Check if teacherId already exists (if provided)
+            if (teacherId) {
+                const existingTeacherId = await teachersListCollection.findOne({ teacherId });
+                if (existingTeacherId) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'A teacher with this Teacher ID already exists'
+                    });
+                }
             }
 
             // Check if smartId already exists (if provided)
@@ -157,29 +228,66 @@ module.exports = (teachersListCollection) => {
             }
 
             const newTeacher = {
+                // Personal Information
+                teacherId: teacherId?.trim() || '',
+                personalPhone: personalPhone.trim(),
+                teacherSerial: teacherSerial?.trim() || '',
+                teacherEmail: teacherEmail?.trim() || '',
                 smartId: smartId?.trim() || '',
-                fingerId: fingerId?.trim() || '',
+                bloodGroup: bloodGroup || '',
                 name: name.trim(),
-                mobile: mobile.trim(),
+                gender: gender || 'Male',
+                englishName: englishName?.trim() || '',
+                dob: dob || '',
+
+                // Address Information
+                permanentVillage: permanentVillage?.trim() || '',
+                permanentPostOffice: permanentPostOffice?.trim() || '',
+                permanentThana: permanentThana?.trim() || '',
+                permanentDistrict: permanentDistrict?.trim() || '',
+                currentVillage: currentVillage?.trim() || '',
+                currentPostOffice: currentPostOffice?.trim() || '',
+                currentThana: currentThana?.trim() || '',
+                currentDistrict: currentDistrict?.trim() || '',
+                sameAsPermanent: sameAsPermanent === 'true' || sameAsPermanent === true,
+
+                // Professional Information
                 designation: designation?.trim() || '',
+                monthlySalary: monthlySalary || '',
+                department: department?.trim() || '',
+                staffType: staffType || 'Teacher',
+                joiningDate: joiningDate || '',
+                residenceType: residenceType || 'Permanent',
+
+                // Additional Information
+                guardianPhone: guardianPhone?.trim() || '',
+                youtubeChannel: youtubeChannel?.trim() || '',
+                facebookProfile: facebookProfile?.trim() || '',
+                position: position || 'Active',
+                twitterProfile: twitterProfile?.trim() || '',
+                language: language || 'Bangla',
+
+                // Session Information
+                session: session?.trim() || '',
+
+                // Certificate Information
+                certificateName1: certificateName1?.trim() || '',
+                certificateName2: certificateName2?.trim() || '',
+
+                // Existing fields
+                fingerId: fingerId?.trim() || '',
                 biboron: biboron?.trim() || '',
                 salary: salary || '',
-                position: position || 'Active',
-                session: session?.trim() || '',
-                staffType: staffType || 'Teacher',
-                // নতুন শিফট ফিল্ডগুলো
-                shiftName: shiftName?.trim() || '',
-                teacherEntryTime: teacherEntryTime || '',
-                teacherExitTime: teacherExitTime || '',
-                countLateAfter: countLateAfter || '',
-                countEarlyExitBefore: countEarlyExitBefore || '',
-                sendSms: sendSms === 'true' || sendSms === true,
-                smsType: smsType || '',
-                timezone: timezone || 'Asia/Dhaka',
-                absentAfter: absentAfter || '',
-                photo: req.file ? `/api/uploads/teacher-photos/${req.file.filename}` : '',
-                photoOriginalName: req.file ? req.file.originalname : '',
-                isActive: position !== 'Deactivated', // Automatically set isActive based on position
+
+                // File paths
+                photo: req.files['photo'] ? `/api/uploads/teacher-photos/${req.files['photo'][0].filename}` : '',
+                photoOriginalName: req.files['photo'] ? req.files['photo'][0].originalname : '',
+                certificateImage1: req.files['certificateImage1'] ? `/api/uploads/teacher-certificates/${req.files['certificateImage1'][0].filename}` : '',
+                certificateImage1OriginalName: req.files['certificateImage1'] ? req.files['certificateImage1'][0].originalname : '',
+                certificateImage2: req.files['certificateImage2'] ? `/api/uploads/teacher-certificates/${req.files['certificateImage2'][0].filename}` : '',
+                certificateImage2OriginalName: req.files['certificateImage2'] ? req.files['certificateImage2'][0].originalname : '',
+
+                isActive: position !== 'Deactivated',
                 createdAt: new Date(),
                 updatedAt: new Date()
             };
@@ -203,57 +311,105 @@ module.exports = (teachersListCollection) => {
             console.error('Error adding teacher:', error);
             res.status(500).json({
                 success: false,
-                message: 'Failed to add teacher/staff'
+                message: 'Failed to add teacher/staff: ' + error.message
             });
         }
     });
 
-    // UPDATE teacher with file upload - UPDATED FIELDS
-    router.put('/:id', upload.single('photo'), async (req, res) => {
+    // UPDATE teacher with file upload - UPDATED WITH ALL NEW FIELDS
+    router.put('/:id', upload.fields([
+        { name: 'photo', maxCount: 1 },
+        { name: 'certificateImage1', maxCount: 1 },
+        { name: 'certificateImage2', maxCount: 1 }
+    ]), async (req, res) => {
         try {
             const { id } = req.params;
             const { 
+                // Personal Information
+                teacherId,
+                personalPhone,
+                teacherSerial,
+                teacherEmail,
                 smartId,
-                fingerId,
-                name, 
-                mobile, 
+                bloodGroup,
+                name,
+                gender,
+                englishName,
+                dob,
+
+                // Address Information
+                permanentVillage,
+                permanentPostOffice,
+                permanentThana,
+                permanentDistrict,
+                currentVillage,
+                currentPostOffice,
+                currentThana,
+                currentDistrict,
+                sameAsPermanent,
+
+                // Professional Information
                 designation,
-                biboron,
-                salary, 
-                position,
-                session,
+                monthlySalary,
+                department,
                 staffType,
-                // নতুন শিফট ফিল্ডগুলো
-                shiftName,
-                teacherEntryTime,
-                teacherExitTime,
-                countLateAfter,
-                countEarlyExitBefore,
-                sendSms,
-                smsType,
-                timezone,
-                absentAfter
+                joiningDate,
+                residenceType,
+
+                // Additional Information
+                guardianPhone,
+                youtubeChannel,
+                facebookProfile,
+                position,
+                twitterProfile,
+                language,
+
+                // Session Information
+                session,
+
+                // Certificate Information
+                certificateName1,
+                certificateName2,
+
+                // Existing fields
+                fingerId,
+                biboron,
+                salary
             } = req.body;
 
             // Validation - updated required fields
-            if (!name || !mobile) {
+            if (!name || !personalPhone) {
                 return res.status(400).json({
                     success: false,
-                    message: 'Name and mobile are required fields'
+                    message: 'Name and personal phone are required fields'
                 });
             }
 
-            // Check if mobile already exists for other teachers
+            // Check if personal phone already exists for other teachers
             const existingTeacher = await teachersListCollection.findOne({ 
-                mobile, 
+                personalPhone, 
                 _id: { $ne: new ObjectId(id) } 
             });
             
             if (existingTeacher) {
                 return res.status(400).json({
                     success: false,
-                    message: 'A teacher with this mobile number already exists'
+                    message: 'A teacher with this personal phone number already exists'
                 });
+            }
+
+            // Check if teacherId already exists for other teachers (if provided)
+            if (teacherId) {
+                const existingTeacherId = await teachersListCollection.findOne({ 
+                    teacherId, 
+                    _id: { $ne: new ObjectId(id) } 
+                });
+                if (existingTeacherId) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'A teacher with this Teacher ID already exists'
+                    });
+                }
             }
 
             // Check if smartId already exists for other teachers (if provided)
@@ -294,43 +450,104 @@ module.exports = (teachersListCollection) => {
             }
 
             const updateData = {
+                // Personal Information
+                teacherId: teacherId?.trim() || '',
+                personalPhone: personalPhone.trim(),
+                teacherSerial: teacherSerial?.trim() || '',
+                teacherEmail: teacherEmail?.trim() || '',
                 smartId: smartId?.trim() || '',
-                fingerId: fingerId?.trim() || '',
+                bloodGroup: bloodGroup || '',
                 name: name.trim(),
-                mobile: mobile.trim(),
+                gender: gender || 'Male',
+                englishName: englishName?.trim() || '',
+                dob: dob || '',
+
+                // Address Information
+                permanentVillage: permanentVillage?.trim() || '',
+                permanentPostOffice: permanentPostOffice?.trim() || '',
+                permanentThana: permanentThana?.trim() || '',
+                permanentDistrict: permanentDistrict?.trim() || '',
+                currentVillage: currentVillage?.trim() || '',
+                currentPostOffice: currentPostOffice?.trim() || '',
+                currentThana: currentThana?.trim() || '',
+                currentDistrict: currentDistrict?.trim() || '',
+                sameAsPermanent: sameAsPermanent === 'true' || sameAsPermanent === true,
+
+                // Professional Information
                 designation: designation?.trim() || '',
+                monthlySalary: monthlySalary || '',
+                department: department?.trim() || '',
+                staffType: staffType || 'Teacher',
+                joiningDate: joiningDate || '',
+                residenceType: residenceType || 'Permanent',
+
+                // Additional Information
+                guardianPhone: guardianPhone?.trim() || '',
+                youtubeChannel: youtubeChannel?.trim() || '',
+                facebookProfile: facebookProfile?.trim() || '',
+                position: position || 'Active',
+                twitterProfile: twitterProfile?.trim() || '',
+                language: language || 'Bangla',
+
+                // Session Information
+                session: session?.trim() || '',
+
+                // Certificate Information
+                certificateName1: certificateName1?.trim() || '',
+                certificateName2: certificateName2?.trim() || '',
+
+                // Existing fields
+                fingerId: fingerId?.trim() || '',
                 biboron: biboron?.trim() || '',
                 salary: salary || '',
-                position: position || 'Active',
-                session: session?.trim() || '',
-                staffType: staffType || 'Teacher',
-                // নতুন শিফট ফিল্ডগুলো
-                shiftName: shiftName?.trim() || '',
-                teacherEntryTime: teacherEntryTime || '',
-                teacherExitTime: teacherExitTime || '',
-                countLateAfter: countLateAfter || '',
-                countEarlyExitBefore: countEarlyExitBefore || '',
-                sendSms: sendSms === 'true' || sendSms === true,
-                smsType: smsType || '',
-                timezone: timezone || 'Asia/Dhaka',
-                absentAfter: absentAfter || '',
-                isActive: position !== 'Deactivated', // Automatically set isActive based on position
+
+                isActive: position !== 'Deactivated',
                 updatedAt: new Date()
             };
 
-            // If new photo uploaded, update photo path and delete old photo
-            if (req.file) {
-                // Delete old photo file if exists
-                if (currentTeacher.photo && currentTeacher.photo.startsWith('/api/uploads/teacher-photos/')) {
-                    const oldFilename = currentTeacher.photo.replace('/api/uploads/teacher-photos/', '');
-                    const oldImagePath = path.join(__dirname, '..', 'uploads', 'teacher-photos', oldFilename);
-                    if (fs.existsSync(oldImagePath)) {
-                        fs.unlinkSync(oldImagePath);
+            // Handle file uploads and delete old files
+            if (req.files) {
+                // Handle profile photo
+                if (req.files['photo']) {
+                    // Delete old photo file if exists
+                    if (currentTeacher.photo && currentTeacher.photo.startsWith('/api/uploads/teacher-photos/')) {
+                        const oldFilename = currentTeacher.photo.replace('/api/uploads/teacher-photos/', '');
+                        const oldImagePath = path.join(__dirname, '..', 'uploads', 'teacher-photos', oldFilename);
+                        if (fs.existsSync(oldImagePath)) {
+                            fs.unlinkSync(oldImagePath);
+                        }
                     }
+                    updateData.photo = `/api/uploads/teacher-photos/${req.files['photo'][0].filename}`;
+                    updateData.photoOriginalName = req.files['photo'][0].originalname;
                 }
 
-                updateData.photo = `/api/uploads/teacher-photos/${req.file.filename}`;
-                updateData.photoOriginalName = req.file.originalname;
+                // Handle certificate 1
+                if (req.files['certificateImage1']) {
+                    // Delete old certificate file if exists
+                    if (currentTeacher.certificateImage1 && currentTeacher.certificateImage1.startsWith('/api/uploads/teacher-certificates/')) {
+                        const oldFilename = currentTeacher.certificateImage1.replace('/api/uploads/teacher-certificates/', '');
+                        const oldFilePath = path.join(__dirname, '..', 'uploads', 'teacher-certificates', oldFilename);
+                        if (fs.existsSync(oldFilePath)) {
+                            fs.unlinkSync(oldFilePath);
+                        }
+                    }
+                    updateData.certificateImage1 = `/api/uploads/teacher-certificates/${req.files['certificateImage1'][0].filename}`;
+                    updateData.certificateImage1OriginalName = req.files['certificateImage1'][0].originalname;
+                }
+
+                // Handle certificate 2
+                if (req.files['certificateImage2']) {
+                    // Delete old certificate file if exists
+                    if (currentTeacher.certificateImage2 && currentTeacher.certificateImage2.startsWith('/api/uploads/teacher-certificates/')) {
+                        const oldFilename = currentTeacher.certificateImage2.replace('/api/uploads/teacher-certificates/', '');
+                        const oldFilePath = path.join(__dirname, '..', 'uploads', 'teacher-certificates', oldFilename);
+                        if (fs.existsSync(oldFilePath)) {
+                            fs.unlinkSync(oldFilePath);
+                        }
+                    }
+                    updateData.certificateImage2 = `/api/uploads/teacher-certificates/${req.files['certificateImage2'][0].filename}`;
+                    updateData.certificateImage2OriginalName = req.files['certificateImage2'][0].originalname;
+                }
             }
 
             const result = await teachersListCollection.updateOne(
@@ -355,7 +572,7 @@ module.exports = (teachersListCollection) => {
             console.error('Error updating teacher:', error);
             res.status(500).json({
                 success: false,
-                message: 'Failed to update teacher/staff'
+                message: 'Failed to update teacher/staff: ' + error.message
             });
         }
     });
@@ -365,7 +582,7 @@ module.exports = (teachersListCollection) => {
         try {
             const { id } = req.params;
             
-            // Get teacher data first to delete photo file
+            // Get teacher data first to delete files
             const teacher = await teachersListCollection.findOne({ _id: new ObjectId(id) });
             
             if (!teacher) {
@@ -381,6 +598,23 @@ module.exports = (teachersListCollection) => {
                 const imagePath = path.join(__dirname, '..', 'uploads', 'teacher-photos', filename);
                 if (fs.existsSync(imagePath)) {
                     fs.unlinkSync(imagePath);
+                }
+            }
+
+            // Delete certificate files if exist
+            if (teacher.certificateImage1 && teacher.certificateImage1.startsWith('/api/uploads/teacher-certificates/')) {
+                const filename = teacher.certificateImage1.replace('/api/uploads/teacher-certificates/', '');
+                const filePath = path.join(__dirname, '..', 'uploads', 'teacher-certificates', filename);
+                if (fs.existsSync(filePath)) {
+                    fs.unlinkSync(filePath);
+                }
+            }
+
+            if (teacher.certificateImage2 && teacher.certificateImage2.startsWith('/api/uploads/teacher-certificates/')) {
+                const filename = teacher.certificateImage2.replace('/api/uploads/teacher-certificates/', '');
+                const filePath = path.join(__dirname, '..', 'uploads', 'teacher-certificates', filename);
+                if (fs.existsSync(filePath)) {
+                    fs.unlinkSync(filePath);
                 }
             }
 
@@ -406,6 +640,7 @@ module.exports = (teachersListCollection) => {
         }
     });
 
+    // ... keep the existing search, filter, and other routes as they are
     // GET teachers by staff type
     router.get('/type/:staffType', async (req, res) => {
         try {

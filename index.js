@@ -22,15 +22,21 @@ app.use(
 app.use(express.json());
 app.use(cookieParser());
 
-// Create uploads directory if not exists - EI LINE AGE KORTE HOBE
+// =============================================
+// 2. UPLOADS DIRECTORY SETUP (Routes এর আগে!)
+// =============================================
 const uploadsDir = path.join(__dirname, "uploads");
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
-  console.log("Uploads directory created");
+  console.log("✅ Uploads directory created");
 }
 
-// Serve uploaded files statically - EI LINE THIK KORTE HOBE
+// =============================================
+// 3. STATIC FILES - Routes এর আগে রাখো!
+// =============================================
 app.use("/api/uploads", express.static(path.join(__dirname, "uploads")));
+console.log("✅ Static files serving from:", path.join(__dirname, "uploads"));
+
 
 const user = process.env.USER_DB;
 const pass = process.env.USER_PASS;

@@ -5,7 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const { ObjectId } = require('mongodb');
 
-// Multer configuration for file upload
+// Multer configuration for student photo upload
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     const uploadDir = 'uploads/students/';
@@ -35,7 +35,6 @@ const upload = multer({
 });
 
 module.exports = (studentsCollection, classesCollection, sectionsCollection, batchesCollection, sessionsCollection, teachersCollection) => {
-
 
     // GET single student by studentId
     router.get('/:studentId', async (req, res) => {
@@ -397,308 +396,197 @@ module.exports = (studentsCollection, classesCollection, sectionsCollection, bat
         }
     });
 
-    // CREATE new student
-    router.post('/', upload.single('photo'), async (req, res) => {
-        try {
-            const studentData = req.body;
-            
-            // Required fields validation
-            if (!studentData.name || !studentData.classId || !studentData.classRoll) {
-                if (req.file) {
-                    fs.unlinkSync(req.file.path);
-                }
-                return res.status(400).json({
-                    success: false,
-                    message: 'Name, class, and class roll are required'
-                });
-            }
+// ==================== CREATE STUDENT ====================
+  router.post('/', upload.single('photo'), async (req, res) => {
+    try {
+      const data = req.body;
 
-            // Generate student ID
-            const year = new Date().getFullYear().toString().slice(-2);
-            const randomNum = Math.floor(1000 + Math.random() * 9000);
-            const studentId = `ST${year}${randomNum}`;
+      // Required validation
+      if (!data.name || !data.classId || !data.classRoll || !data.gender || !data.permanentVillage || !data.permanentPostOffice) {
+        if (req.file) fs.unlinkSync(req.file.path);
+        return res.status(400).json({ success: false, message: 'Required fields missing!' });
+      }
 
-            // Parse numeric values safely
-            const parseFloatSafe = (value) => {
-                if (!value || value === '') return 0;
-                const parsed = parseFloat(value);
-                return isNaN(parsed) ? 0 : parsed;
-            };
+      // Generate Student ID
+      const year = new Date().getFullYear().toString().slice(-2);
+      const random = Math.floor(1000 + Math.random() * 9000);
+      const studentId = `ST${year}${random}`;
 
-            const parseIntSafe = (value) => {
-                if (!value || value === '') return 0;
-                const parsed = parseInt(value);
-                return isNaN(parsed) ? 0 : parsed;
-            };
+      const parseFloatSafe = (v) => (v ? parseFloat(v) || 0 : 0);
+      const parseIntSafe = (v) => (v ? parseInt(v) || 0 : 0);
+      const parseBool = (v) => v === 'true' || v === true || v === '1';
 
-            const parseBoolean = (value) => {
-                if (value === 'true' || value === true || value === '1') return true;
-                if (value === 'false' || value === false || value === '0') return false;
-                return Boolean(value);
-            };
+      const newStudent = {
+        studentId,
+        smartId: data.smartId || '',
+        dakhelaNumber: data.dakhelaNumber || '',
+        name: data.name,
+        dob: data.dob ? new Date(data.dob) : null,
+        birthRegistration: data.birthRegistration || '',
+        gender: data.gender,
+        mobile: data.mobile || '',
+        bloodGroup: data.bloodGroup || '',
+        photo: req.file ? `/api/uploads/students/${req.file.filename}` : '',
+        attachmentType: data.attachmentType || '',
 
-            const newStudent = {
-                studentId,
-                smartId: studentData.smartId || '',
-                dakhelaNumber: studentData.dakhelaNumber || '',
-                name: studentData.name,
-                dob: studentData.dob ? new Date(studentData.dob) : null,
-                birthRegistration: studentData.birthRegistration || '',
-                gender: studentData.gender || 'male',
-                mobile: studentData.mobile || '',
-                bloodGroup: studentData.bloodGroup || '',
-                photo: req.file ? `/uploads/students/${req.file.filename}` : '',
-                attachmentType: studentData.attachmentType || '',
+        // Guardian / Family
+        fatherName: data.fatherName || '',
+        motherName: data.motherName || '',
+        guardianName: data.guardianName || data.fatherName || '',
+        guardianMobile: data.guardianMobile || data.mobile || '',
+        relation: data.relation || '',
+        guardianNid: data.guardianNid || '',
 
-                // Family Information
-                fatherName: studentData.fatherName || '',
-                motherName: studentData.motherName || '',
-                guardianName: studentData.guardianName || '',
-                guardianMobile: studentData.guardianMobile || '',
-                relation: studentData.relation || '',
-                guardianNid: studentData.guardianNid || '',
+        // Permanent Address
+        permanentVillage: data.permanentVillage,
+        permanentPostOffice: data.permanentPostOffice,
+        permanentDistrict: data.permanentDistrict || '',
+        permanentThana: data.permanentThana || '',
 
-                // Address Information
-                permanentVillage: studentData.permanentVillage || '',
-                permanentPostOffice: studentData.permanentPostOffice || '',
-                permanentDistrict: studentData.permanentDistrict || '',
-                permanentThana: studentData.permanentThana || '',
-                currentVillage: studentData.currentVillage || '',
-                currentPostOffice: studentData.currentPostOffice || '',
-                currentDistrict: studentData.currentDistrict || '',
-                currentThana: studentData.currentThana || '',
-                sameAsPermanent: parseBoolean(studentData.sameAsPermanent),
+        // Current Address (same as permanent if checkbox true)
+        sameAsPermanent: parseBool(data.sameAsPermanent),
+        currentVillage: parseBool(data.sameAsPermanent) ? data.permanentVillage : (data.currentVillage || ''),
+        currentPostOffice: parseBool(data.sameAsPermanent) ? data.permanentPostOffice : (data.currentPostOffice || ''),
+        currentDistrict: parseBool(data.sameAsPermanent) ? data.permanentDistrict : (data.currentDistrict || ''),
+        currentThana: parseBool(data.sameAsPermanent) ? data.permanentThana : (data.currentThana || ''),
 
-                // Academic Information
-                classId: new ObjectId(studentData.classId),
-                batchId: studentData.batchId ? new ObjectId(studentData.batchId) : null,
-                sectionId: studentData.sectionId ? new ObjectId(studentData.sectionId) : null,
-                sessionId: studentData.sessionId ? new ObjectId(studentData.sessionId) : null,
-                classRoll: parseIntSafe(studentData.classRoll),
-                additionalNote: studentData.additionalNote || '',
-                status: studentData.status || 'active',
-                studentType: studentData.studentType || 'non_residential',
-                mentorId: studentData.mentorId ? new ObjectId(studentData.mentorId) : null,
+        // Academic
+        classId: new ObjectId(data.classId),
+        batchId: data.batchId ? new ObjectId(data.batchId) : null,
+        sectionId: data.sectionId ? new ObjectId(data.sectionId) : null,
+        sessionId: data.sessionId ? new ObjectId(data.sessionId) : null,
+        classRoll: parseIntSafe(data.classRoll),
+        studentType: data.studentType || 'non_residential',
+        mentorId: data.mentorId ? new ObjectId(data.mentorId) : null,
+        additionalNote: data.additionalNote || '',
+        status: data.status || 'active',
 
-                // Fee Information
-                admissionFee: parseFloatSafe(studentData.admissionFee),
-                monthlyFee: parseFloatSafe(studentData.monthlyFee),
-                previousDues: parseFloatSafe(studentData.previousDues),
-                sessionFee: parseFloatSafe(studentData.sessionFee),
-                boardingFee: parseFloatSafe(studentData.boardingFee),
-                otherFee: parseFloatSafe(studentData.otherFee),
-                transportFee: parseFloatSafe(studentData.transportFee),
-                residenceFee: parseFloatSafe(studentData.residenceFee),
+        // Fees
+        admissionFee: parseFloatSafe(data.admissionFee),
+        monthlyFee: parseFloatSafe(data.monthlyFee),
+        previousDues: parseFloatSafe(data.previousDues),
+        sessionFee: parseFloatSafe(data.sessionFee),
+        boardingFee: parseFloatSafe(data.boardingFee),
+        otherFee: parseFloatSafe(data.otherFee),
+        transportFee: parseFloatSafe(data.transportFee),
+        residenceFee: parseFloatSafe(data.residenceFee),
 
-                // Other Settings
-                sendAdmissionSMS: parseBoolean(studentData.sendAdmissionSMS),
-                studentSerial: parseIntSafe(studentData.studentSerial),
-                sendAttendanceSMS: parseBoolean(studentData.sendAttendanceSMS),
+        // SMS Settings
+        sendAdmissionSMS: parseBool(data.sendAdmissionSMS),
+        sendAttendanceSMS: parseBool(data.sendAttendanceSMS),
+        studentSerial: parseIntSafe(data.studentSerial),
 
-                // Calculate total fees
-                totalFees: 0,
-                paidFees: 0,
-                dueFees: 0,
+        // Calculated
+        totalFees: 0,
+        paidFees: 0,
+        dueFees: 0,
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
 
-                isActive: true,
-                createdAt: new Date(),
-                updatedAt: new Date()
-            };
+      // Total & Due Fees
+      newStudent.totalFees = Object.values(newStudent).filter(v => typeof v === 'number' && v > 0 && [
+        'admissionFee','monthlyFee','previousDues','sessionFee','boardingFee','otherFee','transportFee','residenceFee'
+      ].some(key => newStudent[key] === v)).reduce((a, b) => a + b, 0);
 
-            // Calculate total fees
-            newStudent.totalFees = 
-                newStudent.admissionFee +
-                newStudent.monthlyFee +
-                newStudent.previousDues +
-                newStudent.sessionFee +
-                newStudent.boardingFee +
-                newStudent.otherFee +
-                newStudent.transportFee +
-                newStudent.residenceFee;
-            
-            newStudent.dueFees = newStudent.totalFees;
+      newStudent.dueFees = newStudent.totalFees;
 
-            const result = await studentsCollection.insertOne(newStudent);
-            
-            res.status(201).json({
-                success: true,
-                message: 'Student created successfully',
-                data: {
-                    _id: result.insertedId,
-                    ...newStudent
-                }
-            });
-        } catch (error) {
-            if (req.file) {
-                fs.unlinkSync(req.file.path);
-            }
-            console.error('Error creating student:', error);
-            res.status(500).json({
-                success: false,
-                message: 'Error creating student',
-                error: error.message
-            });
+      const result = await studentsCollection.insertOne(newStudent);
+
+      res.status(201).json({
+        success: true,
+        message: 'Student created successfully',
+        data: { _id: result.insertedId, ...newStudent }
+      });
+
+    } catch (err) {
+      if (req.file) fs.unlinkSync(req.file.path);
+      console.error('Create student error:', err);
+      res.status(500).json({ success: false, message: err.message });
+    }
+  });
+
+  // ==================== UPDATE STUDENT ====================
+  router.put('/:id', upload.single('photo'), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const data = req.body;
+
+      const existing = await studentsCollection.findOne({ _id: new ObjectId(id) });
+      if (!existing) {
+        if (req.file) fs.unlinkSync(req.file.path);
+        return res.status(404).json({ success: false, message: 'Student not found' });
+      }
+
+      const parseFloatSafe = (v) => (v ? parseFloat(v) || 0 : 0);
+      const parseIntSafe = (v) => (v ? parseInt(v) || 0 : 0);
+      const parseBool = (v) => v === 'true' || v === true || v === '1';
+
+      const updateData = { updatedAt: new Date() };
+
+      // Update only sent fields
+      const fields = [
+        'name','smartId','dakhelaNumber','dob','birthRegistration','gender','mobile','bloodGroup','attachmentType',
+        'fatherName','motherName','guardianName','guardianMobile','relation','guardianNid',
+        'permanentVillage','permanentPostOffice','permanentDistrict','permanentThana',
+        'currentVillage','currentPostOffice','currentDistrict','currentThana',
+        'sameAsPermanent','classId','batchId','sectionId','sessionId','classRoll','studentType',
+        'mentorId','additionalNote','status',
+        'admissionFee','monthlyFee','previousDues','sessionFee','boardingFee','otherFee','transportFee','residenceFee',
+        'sendAdmissionSMS','sendAttendanceSMS','studentSerial'
+      ];
+
+      fields.forEach(field => {
+        if (data[field] !== undefined) {
+          if (['classId','batchId','sectionId','sessionId','mentorId'].includes(field) && data[field]) {
+            updateData[field] = data[field] ? new ObjectId(data[field]) : null;
+          } else if (field === 'dob' && data[field]) {
+            updateData.dob = new Date(data[field]);
+          } else if (['sameAsPermanent','sendAdmissionSMS','sendAttendanceSMS'].includes(field)) {
+            updateData[field] = parseBool(data[field]);
+          } else if (['classRoll','studentSerial'].includes(field)) {
+            updateData[field] = parseIntSafe(data[field]);
+          } else if (field.endsWith('Fee')) {
+            updateData[field] = parseFloatSafe(data[field]);
+          } else {
+            updateData[field] = data[field];
+          }
         }
-    });
+      });
 
-    // UPDATE student
-    router.put('/:id', upload.single('photo'), async (req, res) => {
-        try {
-            const { id } = req.params;
-            const studentData = req.body;
+      // Handle sameAsPermanent checkbox
+      if (parseBool(data.sameAsPermanent)) {
+        updateData.currentVillage = updateData.permanentVillage || existing.permanentVillage;
+        updateData.currentPostOffice = updateData.permanentPostOffice || existing.permanentPostOffice;
+        updateData.currentDistrict = updateData.permanentDistrict || existing.permanentDistrict;
+        updateData.currentThana = updateData.permanentThana || existing.permanentThana;
+      }
 
-            const existingStudent = await studentsCollection.findOne({ 
-                _id: new ObjectId(id) 
-            });
-
-            if (!existingStudent) {
-                if (req.file) {
-                    fs.unlinkSync(req.file.path);
-                }
-                return res.status(404).json({
-                    success: false,
-                    message: 'Student not found'
-                });
-            }
-
-            // Parse numeric values safely
-            const parseFloatSafe = (value) => {
-                if (!value || value === '') return 0;
-                const parsed = parseFloat(value);
-                return isNaN(parsed) ? 0 : parsed;
-            };
-
-            const parseIntSafe = (value) => {
-                if (!value || value === '') return 0;
-                const parsed = parseInt(value);
-                return isNaN(parsed) ? 0 : parsed;
-            };
-
-            const parseBoolean = (value) => {
-                if (value === 'true' || value === true || value === '1') return true;
-                if (value === 'false' || value === false || value === '0') return false;
-                return Boolean(value);
-            };
-
-            const updateData = {
-                updatedAt: new Date()
-            };
-
-            // Personal Information
-            if (studentData.name !== undefined) updateData.name = studentData.name;
-            if (studentData.smartId !== undefined) updateData.smartId = studentData.smartId;
-            if (studentData.dakhelaNumber !== undefined) updateData.dakhelaNumber = studentData.dakhelaNumber;
-            if (studentData.dob !== undefined) updateData.dob = studentData.dob ? new Date(studentData.dob) : null;
-            if (studentData.birthRegistration !== undefined) updateData.birthRegistration = studentData.birthRegistration;
-            if (studentData.gender !== undefined) updateData.gender = studentData.gender;
-            if (studentData.mobile !== undefined) updateData.mobile = studentData.mobile;
-            if (studentData.bloodGroup !== undefined) updateData.bloodGroup = studentData.bloodGroup;
-            if (studentData.attachmentType !== undefined) updateData.attachmentType = studentData.attachmentType;
-
-            // Family Information
-            if (studentData.fatherName !== undefined) updateData.fatherName = studentData.fatherName;
-            if (studentData.motherName !== undefined) updateData.motherName = studentData.motherName;
-            if (studentData.guardianName !== undefined) updateData.guardianName = studentData.guardianName;
-            if (studentData.guardianMobile !== undefined) updateData.guardianMobile = studentData.guardianMobile;
-            if (studentData.relation !== undefined) updateData.relation = studentData.relation;
-            if (studentData.guardianNid !== undefined) updateData.guardianNid = studentData.guardianNid;
-
-            // Address Information
-            if (studentData.permanentVillage !== undefined) updateData.permanentVillage = studentData.permanentVillage;
-            if (studentData.permanentPostOffice !== undefined) updateData.permanentPostOffice = studentData.permanentPostOffice;
-            if (studentData.permanentDistrict !== undefined) updateData.permanentDistrict = studentData.permanentDistrict;
-            if (studentData.permanentThana !== undefined) updateData.permanentThana = studentData.permanentThana;
-            if (studentData.currentVillage !== undefined) updateData.currentVillage = studentData.currentVillage;
-            if (studentData.currentPostOffice !== undefined) updateData.currentPostOffice = studentData.currentPostOffice;
-            if (studentData.currentDistrict !== undefined) updateData.currentDistrict = studentData.currentDistrict;
-            if (studentData.currentThana !== undefined) updateData.currentThana = studentData.currentThana;
-            if (studentData.sameAsPermanent !== undefined) updateData.sameAsPermanent = parseBoolean(studentData.sameAsPermanent);
-
-            // Academic Information
-            if (studentData.classId) updateData.classId = new ObjectId(studentData.classId);
-            if (studentData.batchId) updateData.batchId = studentData.batchId ? new ObjectId(studentData.batchId) : null;
-            if (studentData.sectionId) updateData.sectionId = studentData.sectionId ? new ObjectId(studentData.sectionId) : null;
-            if (studentData.sessionId) updateData.sessionId = studentData.sessionId ? new ObjectId(studentData.sessionId) : null;
-            if (studentData.mentorId) updateData.mentorId = studentData.mentorId ? new ObjectId(studentData.mentorId) : null;
-            if (studentData.classRoll !== undefined) updateData.classRoll = parseIntSafe(studentData.classRoll);
-            if (studentData.additionalNote !== undefined) updateData.additionalNote = studentData.additionalNote;
-            if (studentData.status !== undefined) updateData.status = studentData.status;
-            if (studentData.studentType !== undefined) updateData.studentType = studentData.studentType;
-
-            // Fee Information
-            if (studentData.admissionFee !== undefined) updateData.admissionFee = parseFloatSafe(studentData.admissionFee);
-            if (studentData.monthlyFee !== undefined) updateData.monthlyFee = parseFloatSafe(studentData.monthlyFee);
-            if (studentData.previousDues !== undefined) updateData.previousDues = parseFloatSafe(studentData.previousDues);
-            if (studentData.sessionFee !== undefined) updateData.sessionFee = parseFloatSafe(studentData.sessionFee);
-            if (studentData.boardingFee !== undefined) updateData.boardingFee = parseFloatSafe(studentData.boardingFee);
-            if (studentData.otherFee !== undefined) updateData.otherFee = parseFloatSafe(studentData.otherFee);
-            if (studentData.transportFee !== undefined) updateData.transportFee = parseFloatSafe(studentData.transportFee);
-            if (studentData.residenceFee !== undefined) updateData.residenceFee = parseFloatSafe(studentData.residenceFee);
-
-            // Other Settings
-            if (studentData.sendAdmissionSMS !== undefined) updateData.sendAdmissionSMS = parseBoolean(studentData.sendAdmissionSMS);
-            if (studentData.studentSerial !== undefined) updateData.studentSerial = parseIntSafe(studentData.studentSerial);
-            if (studentData.sendAttendanceSMS !== undefined) updateData.sendAttendanceSMS = parseBoolean(studentData.sendAttendanceSMS);
-
-            // Handle photo update
-            if (req.file) {
-                // Delete old photo if exists
-                if (existingStudent.photo) {
-                    const oldPhotoPath = path.join(__dirname, '..', '..', existingStudent.photo);
-                    if (fs.existsSync(oldPhotoPath)) {
-                        fs.unlinkSync(oldPhotoPath);
-                    }
-                }
-                updateData.photo = `/uploads/students/${req.file.filename}`;
-            }
-
-            // Recalculate total fees
-            const admissionFee = updateData.admissionFee !== undefined ? updateData.admissionFee : existingStudent.admissionFee;
-            const monthlyFee = updateData.monthlyFee !== undefined ? updateData.monthlyFee : existingStudent.monthlyFee;
-            const previousDues = updateData.previousDues !== undefined ? updateData.previousDues : existingStudent.previousDues;
-            const sessionFee = updateData.sessionFee !== undefined ? updateData.sessionFee : existingStudent.sessionFee;
-            const boardingFee = updateData.boardingFee !== undefined ? updateData.boardingFee : existingStudent.boardingFee;
-            const otherFee = updateData.otherFee !== undefined ? updateData.otherFee : existingStudent.otherFee;
-            const transportFee = updateData.transportFee !== undefined ? updateData.transportFee : existingStudent.transportFee;
-            const residenceFee = updateData.residenceFee !== undefined ? updateData.residenceFee : existingStudent.residenceFee;
-
-            updateData.totalFees = 
-                admissionFee +
-                monthlyFee +
-                previousDues +
-                sessionFee +
-                boardingFee +
-                otherFee +
-                transportFee +
-                residenceFee;
-
-            updateData.dueFees = updateData.totalFees - (existingStudent.paidFees || 0);
-
-            const result = await studentsCollection.updateOne(
-                { _id: new ObjectId(id) },
-                { $set: updateData }
-            );
-
-            res.json({
-                success: true,
-                message: 'Student updated successfully',
-                data: {
-                    _id: id,
-                    ...updateData
-                }
-            });
-        } catch (error) {
-            if (req.file) {
-                fs.unlinkSync(req.file.path);
-            }
-            console.error('Error updating student:', error);
-            res.status(500).json({
-                success: false,
-                message: 'Error updating student',
-                error: error.message
-            });
+      // Photo update
+      if (req.file) {
+        if (existing.photo) {
+          const oldPath = path.join(__dirname, '../../uploads/students', path.basename(existing.photo));
+          if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
         }
-    });
+        updateData.photo = `/api/uploads/students/${req.file.filename}`;
+      }
+
+      // Recalculate total fees
+      const fees = ['admissionFee','monthlyFee','previousDues','sessionFee','boardingFee','otherFee','transportFee','residenceFee'];
+      updateData.totalFees = fees.reduce((sum, key) => sum + (updateData[key] ?? existing[key] ?? 0), 0);
+      updateData.dueFees = updateData.totalFees - (existing.paidFees || 0);
+
+      await studentsCollection.updateOne({ _id: new ObjectId(id) }, { $set: updateData });
+
+      res.json({ success: true, message: 'Student updated successfully' });
+
+    } catch (err) {
+      if (req.file) fs.unlinkSync(req.file.path);
+      console.error('Update error:', err);
+      res.status(500).json({ success: false, message: err.message });
+    }
+  });
 
     // DELETE student
     router.delete('/:id', async (req, res) => {
@@ -716,9 +604,10 @@ module.exports = (studentsCollection, classesCollection, sectionsCollection, bat
                 });
             }
 
-            // Delete photo file if exists
-            if (student.photo) {
-                const photoPath = path.join(__dirname, '..', '..', student.photo);
+            // Delete photo file if exists - banners.js style
+            if (student.photo && student.photo.startsWith('/api/uploads/students/')) {
+                const filename = student.photo.replace('/api/uploads/students/', '');
+                const photoPath = path.join(__dirname, '..', 'uploads', 'students', filename);
                 if (fs.existsSync(photoPath)) {
                     fs.unlinkSync(photoPath);
                 }
