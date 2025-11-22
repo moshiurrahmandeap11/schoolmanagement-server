@@ -53,7 +53,7 @@ module.exports = (resultsCollection) => {
                 _id: result._id,
                 studentId: result.studentId,
                 studentName: result.studentName,
-                examCategoryName: result.examCategory[0]?.name || 'N/A',
+                examCategoryName: result.examCategoryName || result.examCategory[0]?.name || 'N/A',
                 averageMarks: result.averageMarks,
                 averageLetterGrade: result.averageLetterGrade,
                 order: result.order,
@@ -123,7 +123,7 @@ module.exports = (resultsCollection) => {
             const formattedResult = {
                 _id: result._id,
                 examCategoryId: result.examCategoryId,
-                examCategoryName: result.examCategory[0]?.name || 'N/A',
+                examCategoryName: result.examCategoryName || result.examCategory[0]?.name || 'N/A',
                 studentId: result.studentId,
                 studentName: result.studentName,
                 averageMarks: result.averageMarks,
@@ -150,145 +150,164 @@ module.exports = (resultsCollection) => {
         }
     });
 
-    // CREATE new result
-    router.post('/', async (req, res) => {
-        try {
-            const resultData = req.body;
+// CREATE new result
+router.post('/', async (req, res) => {
+    try {
+        const {
+            examCategoryId,
+            examCategoryName,     // এটাও নিচ্ছি
+            studentId,
+            studentName,
+            averageMarks,
+            averageLetterGrade,
+            order,
+            totalAbsent,
+            totalPresent,
+            marksheet
+        } = req.body;
 
-            // Validate required fields
-            if (!resultData.examCategoryId || !resultData.studentId || 
-                !resultData.averageMarks || !resultData.averageLetterGrade) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'All required fields must be filled'
-                });
-            }
-
-            // Check if result already exists for this student and exam category
-            const existingResult = await resultsCollection.findOne({
-                studentId: resultData.studentId,
-                examCategoryId: new ObjectId(resultData.examCategoryId)
-            });
-
-            if (existingResult) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Result already exists for this student and exam category'
-                });
-            }
-
-            const newResult = {
-                examCategoryId: new ObjectId(resultData.examCategoryId),
-                studentId: resultData.studentId,
-                studentName: resultData.studentName,
-                averageMarks: parseFloat(resultData.averageMarks),
-                averageLetterGrade: resultData.averageLetterGrade,
-                order: parseInt(resultData.order) || 0,
-                totalAbsent: parseInt(resultData.totalAbsent) || 0,
-                totalPresent: parseInt(resultData.totalPresent) || 0,
-                marksheet: resultData.marksheet || '',
-                createdAt: new Date(),
-                updatedAt: new Date()
-            };
-
-            const result = await resultsCollection.insertOne(newResult);
-            
-            res.status(201).json({
-                success: true,
-                message: 'Result created successfully',
-                data: {
-                    _id: result.insertedId,
-                    ...newResult
-                }
-            });
-        } catch (error) {
-            console.error('Error creating result:', error);
-            res.status(500).json({
+        // Validation
+        if (!examCategoryId || !studentId || !averageMarks || !averageLetterGrade) {
+            return res.status(400).json({
                 success: false,
-                message: 'Error creating result',
-                error: error.message
+                message: 'পরীক্ষা, শিক্ষার্থী, গড় মার্কস ও গ্রেড আবশ্যক'
             });
         }
-    });
 
-    // UPDATE result
-    router.put('/:id', async (req, res) => {
-        try {
-            const { id } = req.params;
-            const resultData = req.body;
-
-            if (!ObjectId.isValid(id)) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Invalid result ID'
-                });
-            }
-
-            // Validate required fields
-            if (!resultData.examCategoryId || !resultData.studentId || 
-                !resultData.averageMarks || !resultData.averageLetterGrade) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'All required fields must be filled'
-                });
-            }
-
-            // Check if result already exists for this student and exam category (excluding current result)
-            const existingResult = await resultsCollection.findOne({
-                studentId: resultData.studentId,
-                examCategoryId: new ObjectId(resultData.examCategoryId),
-                _id: { $ne: new ObjectId(id) }
-            });
-
-            if (existingResult) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Result already exists for this student and exam category'
-                });
-            }
-
-            const updateData = {
-                examCategoryId: new ObjectId(resultData.examCategoryId),
-                studentId: resultData.studentId,
-                studentName: resultData.studentName,
-                averageMarks: parseFloat(resultData.averageMarks),
-                averageLetterGrade: resultData.averageLetterGrade,
-                order: parseInt(resultData.order) || 0,
-                totalAbsent: parseInt(resultData.totalAbsent) || 0,
-                totalPresent: parseInt(resultData.totalPresent) || 0,
-                marksheet: resultData.marksheet || '',
-                updatedAt: new Date()
-            };
-
-            const result = await resultsCollection.updateOne(
-                { _id: new ObjectId(id) },
-                { $set: updateData }
-            );
-
-            if (result.matchedCount === 0) {
-                return res.status(404).json({
-                    success: false,
-                    message: 'Result not found'
-                });
-            }
-
-            res.json({
-                success: true,
-                message: 'Result updated successfully',
-                data: {
-                    _id: id,
-                    ...updateData
-                }
-            });
-        } catch (error) {
-            console.error('Error updating result:', error);
-            res.status(500).json({
+        // ObjectId validation + conversion
+        if (!ObjectId.isValid(examCategoryId)) {
+            return res.status(400).json({
                 success: false,
-                message: 'Error updating result',
-                error: error.message
+                message: 'অবৈধ পরীক্ষা আইডি'
             });
         }
-    });
+
+        // Duplicate check
+        const existing = await resultsCollection.findOne({
+            studentId,
+            examCategoryId: new ObjectId(examCategoryId)
+        });
+
+        if (existing) {
+            return res.status(400).json({
+                success: false,
+                message: 'এই শিক্ষার্থীর জন্য এই পরীক্ষার ফলাফল ইতিমধ্যে আছে'
+            });
+        }
+
+        const newResult = {
+            examCategoryId: new ObjectId(examCategoryId),
+            examCategoryName: examCategoryName || 'Unknown Exam', // এটা এখন সেভ হবে
+            studentId,
+            studentName: studentName || 'Unknown Student',
+            averageMarks: parseFloat(averageMarks),
+            averageLetterGrade,
+            order: parseInt(order) || null,
+            totalAbsent: parseInt(totalAbsent) || 0,
+            totalPresent: parseInt(totalPresent) || 0,
+            marksheet: marksheet || null,
+            createdAt: new Date(),
+            updatedAt: new Date()
+        };
+
+        const result = await resultsCollection.insertOne(newResult);
+
+        res.status(201).json({
+            success: true,
+            message: 'ফলাফল সফলভাবে তৈরি হয়েছে',
+            data: { _id: result.insertedId, ...newResult }
+        });
+
+    } catch (error) {
+        console.error('Error creating result:', error);
+        res.status(500).json({
+            success: false,
+            message: 'ফলাফল তৈরি করতে সমস্যা হয়েছে',
+            error: error.message
+        });
+    }
+});
+
+// UPDATE result
+router.put('/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        if (!ObjectId.isValid(id)) {
+            return res.status(400).json({ success: false, message: 'অবৈধ আইডি' });
+        }
+
+        const {
+            examCategoryId,
+            examCategoryName,
+            studentId,
+            studentName,
+            averageMarks,
+            averageLetterGrade,
+            order,
+            totalAbsent,
+            totalPresent,
+            marksheet
+        } = req.body;
+
+        if (!examCategoryId || !studentId || !averageMarks || !averageLetterGrade) {
+            return res.status(400).json({ success: false, message: 'সকল আবশ্যকীয় তথ্য দিন' });
+        }
+
+        if (!ObjectId.isValid(examCategoryId)) {
+            return res.status(400).json({ success: false, message: 'অবৈধ পরীক্ষা আইডি' });
+        }
+
+        // Duplicate check (excluding current)
+        const existing = await resultsCollection.findOne({
+            studentId,
+            examCategoryId: new ObjectId(examCategoryId),
+            _id: { $ne: new ObjectId(id) }
+        });
+
+        if (existing) {
+            return res.status(400).json({
+                success: false,
+                message: 'এই শিক্ষার্থীর জন্য এই পরীক্ষার ফলাফল ইতিমধ্যে আছে'
+            });
+        }
+
+        const updateData = {
+            examCategoryId: new ObjectId(examCategoryId),
+            examCategoryName: examCategoryName || 'Unknown Exam',
+            studentId,
+            studentName: studentName || 'Unknown Student',
+            averageMarks: parseFloat(averageMarks),
+            averageLetterGrade,
+            order: parseInt(order) || null,
+            totalAbsent: parseInt(totalAbsent) || 0,
+            totalPresent: parseInt(totalPresent) || 0,
+            marksheet: marksheet || null,
+            updatedAt: new Date()
+        };
+
+        const result = await resultsCollection.updateOne(
+            { _id: new ObjectId(id) },
+            { $set: updateData }
+        );
+
+        if (result.matchedCount === 0) {
+            return res.status(404).json({ success: false, message: 'ফলাফল পাওয়া যায়নি' });
+        }
+
+        res.json({
+            success: true,
+            message: 'ফলাফল সফলভাবে আপডেট হয়েছে',
+            data: { _id: id, ...updateData }
+        });
+
+    } catch (error) {
+        console.error('Error updating result:', error);
+        res.status(500).json({
+            success: false,
+            message: 'আপডেট করতে সমস্যা হয়েছে'
+        });
+    }
+});
 
     // DELETE result
     router.delete('/:id', async (req, res) => {

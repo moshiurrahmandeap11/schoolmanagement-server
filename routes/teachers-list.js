@@ -1,68 +1,11 @@
 const express = require('express');
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
 const router = express.Router();
 const { ObjectId } = require('mongodb');
+const upload = require('../middleware/upload'); // banners.js এর মতোই upload middleware ব্যবহার করো
+const path = require('path');
+const fs = require('fs');
 
 module.exports = (teachersListCollection) => {
-
-    // Configure multer for teacher photos and certificates
-    const storage = multer.diskStorage({
-        destination: function (req, file, cb) {
-            let uploadDir;
-            if (file.fieldname === 'photo') {
-                uploadDir = path.join(__dirname, '../uploads/teacher-photos');
-            } else if (file.fieldname === 'certificateImage1' || file.fieldname === 'certificateImage2') {
-                uploadDir = path.join(__dirname, '../uploads/teacher-certificates');
-            } else {
-                uploadDir = path.join(__dirname, '../uploads/teacher-documents');
-            }
-            
-            if (!fs.existsSync(uploadDir)) {
-                fs.mkdirSync(uploadDir, { recursive: true });
-            }
-            cb(null, uploadDir);
-        },
-        filename: function (req, file, cb) {
-            const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-            if (file.fieldname === 'photo') {
-                cb(null, 'teacher-photo-' + uniqueSuffix + path.extname(file.originalname));
-            } else if (file.fieldname === 'certificateImage1') {
-                cb(null, 'certificate1-' + uniqueSuffix + path.extname(file.originalname));
-            } else if (file.fieldname === 'certificateImage2') {
-                cb(null, 'certificate2-' + uniqueSuffix + path.extname(file.originalname));
-            } else {
-                cb(null, 'document-' + uniqueSuffix + path.extname(file.originalname));
-            }
-        }
-    });
-
-    const fileFilter = (req, file, cb) => {
-        if (file.fieldname === 'photo') {
-            if (file.mimetype.startsWith('image/')) {
-                cb(null, true);
-            } else {
-                cb(new Error('Only image files are allowed for photos'), false);
-            }
-        } else if (file.fieldname === 'certificateImage1' || file.fieldname === 'certificateImage2') {
-            if (file.mimetype.startsWith('image/') || file.mimetype === 'application/pdf') {
-                cb(null, true);
-            } else {
-                cb(new Error('Only image and PDF files are allowed for certificates'), false);
-            }
-        } else {
-            cb(null, true);
-        }
-    };
-
-    const upload = multer({
-        storage: storage,
-        fileFilter: fileFilter,
-        limits: {
-            fileSize: 5 * 1024 * 1024 // 5MB
-        }
-    });
 
     // GET all teachers
     router.get('/', async (req, res) => {
@@ -77,7 +20,8 @@ module.exports = (teachersListCollection) => {
             console.error('Error fetching teachers:', error);
             res.status(500).json({
                 success: false,
-                message: 'Failed to fetch teachers list'
+                message: 'Failed to fetch teachers list',
+                error: error.message
             });
         }
     });
@@ -103,12 +47,13 @@ module.exports = (teachersListCollection) => {
             console.error('Error fetching teacher:', error);
             res.status(500).json({
                 success: false,
-                message: 'Failed to fetch teacher'
+                message: 'Failed to fetch teacher',
+                error: error.message
             });
         }
     });
 
-    // CREATE new teacher with file upload - UPDATED WITH ALL NEW FIELDS
+    // CREATE new teacher with file upload - banners.js style
     router.post('/', upload.fields([
         { name: 'photo', maxCount: 1 },
         { name: 'certificateImage1', maxCount: 1 },
@@ -279,13 +224,21 @@ module.exports = (teachersListCollection) => {
                 biboron: biboron?.trim() || '',
                 salary: salary || '',
 
-                // File paths
-                photo: req.files['photo'] ? `/api/uploads/teacher-photos/${req.files['photo'][0].filename}` : '',
+                // File paths - banners.js style
+                photo: req.files['photo'] ? `/api/uploads/${req.files['photo'][0].filename}` : '',
                 photoOriginalName: req.files['photo'] ? req.files['photo'][0].originalname : '',
-                certificateImage1: req.files['certificateImage1'] ? `/api/uploads/teacher-certificates/${req.files['certificateImage1'][0].filename}` : '',
+                photoSize: req.files['photo'] ? req.files['photo'][0].size : null,
+                photoMimeType: req.files['photo'] ? req.files['photo'][0].mimetype : '',
+
+                certificateImage1: req.files['certificateImage1'] ? `/api/uploads/${req.files['certificateImage1'][0].filename}` : '',
                 certificateImage1OriginalName: req.files['certificateImage1'] ? req.files['certificateImage1'][0].originalname : '',
-                certificateImage2: req.files['certificateImage2'] ? `/api/uploads/teacher-certificates/${req.files['certificateImage2'][0].filename}` : '',
+                certificateImage1Size: req.files['certificateImage1'] ? req.files['certificateImage1'][0].size : null,
+                certificateImage1MimeType: req.files['certificateImage1'] ? req.files['certificateImage1'][0].mimetype : '',
+
+                certificateImage2: req.files['certificateImage2'] ? `/api/uploads/${req.files['certificateImage2'][0].filename}` : '',
                 certificateImage2OriginalName: req.files['certificateImage2'] ? req.files['certificateImage2'][0].originalname : '',
+                certificateImage2Size: req.files['certificateImage2'] ? req.files['certificateImage2'][0].size : null,
+                certificateImage2MimeType: req.files['certificateImage2'] ? req.files['certificateImage2'][0].mimetype : '',
 
                 isActive: position !== 'Deactivated',
                 createdAt: new Date(),
@@ -302,21 +255,46 @@ module.exports = (teachersListCollection) => {
                     data: createdTeacher
                 });
             } else {
+                // banners.js style error handling - uploaded files delete করো
+                if (req.files) {
+                    Object.values(req.files).forEach(fileArray => {
+                        fileArray.forEach(file => {
+                            const filePath = path.join(__dirname, '..', 'uploads', file.filename);
+                            if (fs.existsSync(filePath)) {
+                                fs.unlinkSync(filePath);
+                            }
+                        });
+                    });
+                }
+                
                 res.status(400).json({
                     success: false,
                     message: 'Failed to add teacher/staff'
                 });
             }
         } catch (error) {
+            // banners.js style error handling
+            if (req.files) {
+                Object.values(req.files).forEach(fileArray => {
+                    fileArray.forEach(file => {
+                        const filePath = path.join(__dirname, '..', 'uploads', file.filename);
+                        if (fs.existsSync(filePath)) {
+                            fs.unlinkSync(filePath);
+                        }
+                    });
+                });
+            }
+            
             console.error('Error adding teacher:', error);
             res.status(500).json({
                 success: false,
-                message: 'Failed to add teacher/staff: ' + error.message
+                message: 'Failed to add teacher/staff',
+                error: error.message
             });
         }
     });
 
-    // UPDATE teacher with file upload - UPDATED WITH ALL NEW FIELDS
+    // UPDATE teacher with file upload - banners.js style
     router.put('/:id', upload.fields([
         { name: 'photo', maxCount: 1 },
         { name: 'certificateImage1', maxCount: 1 },
@@ -505,48 +483,54 @@ module.exports = (teachersListCollection) => {
                 updatedAt: new Date()
             };
 
-            // Handle file uploads and delete old files
+            // Handle file uploads and delete old files - banners.js style
             if (req.files) {
                 // Handle profile photo
                 if (req.files['photo']) {
-                    // Delete old photo file if exists
-                    if (currentTeacher.photo && currentTeacher.photo.startsWith('/api/uploads/teacher-photos/')) {
-                        const oldFilename = currentTeacher.photo.replace('/api/uploads/teacher-photos/', '');
-                        const oldImagePath = path.join(__dirname, '..', 'uploads', 'teacher-photos', oldFilename);
+                    // Delete old photo file if exists - banners.js style
+                    if (currentTeacher.photo && currentTeacher.photo.startsWith('/api/uploads/')) {
+                        const oldFilename = currentTeacher.photo.replace('/api/uploads/', '');
+                        const oldImagePath = path.join(__dirname, '..', 'uploads', oldFilename);
                         if (fs.existsSync(oldImagePath)) {
                             fs.unlinkSync(oldImagePath);
                         }
                     }
-                    updateData.photo = `/api/uploads/teacher-photos/${req.files['photo'][0].filename}`;
+                    updateData.photo = `/api/uploads/${req.files['photo'][0].filename}`;
                     updateData.photoOriginalName = req.files['photo'][0].originalname;
+                    updateData.photoSize = req.files['photo'][0].size;
+                    updateData.photoMimeType = req.files['photo'][0].mimetype;
                 }
 
                 // Handle certificate 1
                 if (req.files['certificateImage1']) {
-                    // Delete old certificate file if exists
-                    if (currentTeacher.certificateImage1 && currentTeacher.certificateImage1.startsWith('/api/uploads/teacher-certificates/')) {
-                        const oldFilename = currentTeacher.certificateImage1.replace('/api/uploads/teacher-certificates/', '');
-                        const oldFilePath = path.join(__dirname, '..', 'uploads', 'teacher-certificates', oldFilename);
+                    // Delete old certificate file if exists - banners.js style
+                    if (currentTeacher.certificateImage1 && currentTeacher.certificateImage1.startsWith('/api/uploads/')) {
+                        const oldFilename = currentTeacher.certificateImage1.replace('/api/uploads/', '');
+                        const oldFilePath = path.join(__dirname, '..', 'uploads', oldFilename);
                         if (fs.existsSync(oldFilePath)) {
                             fs.unlinkSync(oldFilePath);
                         }
                     }
-                    updateData.certificateImage1 = `/api/uploads/teacher-certificates/${req.files['certificateImage1'][0].filename}`;
+                    updateData.certificateImage1 = `/api/uploads/${req.files['certificateImage1'][0].filename}`;
                     updateData.certificateImage1OriginalName = req.files['certificateImage1'][0].originalname;
+                    updateData.certificateImage1Size = req.files['certificateImage1'][0].size;
+                    updateData.certificateImage1MimeType = req.files['certificateImage1'][0].mimetype;
                 }
 
                 // Handle certificate 2
                 if (req.files['certificateImage2']) {
-                    // Delete old certificate file if exists
-                    if (currentTeacher.certificateImage2 && currentTeacher.certificateImage2.startsWith('/api/uploads/teacher-certificates/')) {
-                        const oldFilename = currentTeacher.certificateImage2.replace('/api/uploads/teacher-certificates/', '');
-                        const oldFilePath = path.join(__dirname, '..', 'uploads', 'teacher-certificates', oldFilename);
+                    // Delete old certificate file if exists - banners.js style
+                    if (currentTeacher.certificateImage2 && currentTeacher.certificateImage2.startsWith('/api/uploads/')) {
+                        const oldFilename = currentTeacher.certificateImage2.replace('/api/uploads/', '');
+                        const oldFilePath = path.join(__dirname, '..', 'uploads', oldFilename);
                         if (fs.existsSync(oldFilePath)) {
                             fs.unlinkSync(oldFilePath);
                         }
                     }
-                    updateData.certificateImage2 = `/api/uploads/teacher-certificates/${req.files['certificateImage2'][0].filename}`;
+                    updateData.certificateImage2 = `/api/uploads/${req.files['certificateImage2'][0].filename}`;
                     updateData.certificateImage2OriginalName = req.files['certificateImage2'][0].originalname;
+                    updateData.certificateImage2Size = req.files['certificateImage2'][0].size;
+                    updateData.certificateImage2MimeType = req.files['certificateImage2'][0].mimetype;
                 }
             }
 
@@ -572,12 +556,13 @@ module.exports = (teachersListCollection) => {
             console.error('Error updating teacher:', error);
             res.status(500).json({
                 success: false,
-                message: 'Failed to update teacher/staff: ' + error.message
+                message: 'Failed to update teacher/staff',
+                error: error.message
             });
         }
     });
 
-    // DELETE teacher
+    // DELETE teacher - banners.js style
     router.delete('/:id', async (req, res) => {
         try {
             const { id } = req.params;
@@ -592,27 +577,27 @@ module.exports = (teachersListCollection) => {
                 });
             }
 
-            // Delete photo file if exists
-            if (teacher.photo && teacher.photo.startsWith('/api/uploads/teacher-photos/')) {
-                const filename = teacher.photo.replace('/api/uploads/teacher-photos/', '');
-                const imagePath = path.join(__dirname, '..', 'uploads', 'teacher-photos', filename);
+            // Delete photo file if exists - banners.js style
+            if (teacher.photo && teacher.photo.startsWith('/api/uploads/')) {
+                const filename = teacher.photo.replace('/api/uploads/', '');
+                const imagePath = path.join(__dirname, '..', 'uploads', filename);
                 if (fs.existsSync(imagePath)) {
                     fs.unlinkSync(imagePath);
                 }
             }
 
-            // Delete certificate files if exist
-            if (teacher.certificateImage1 && teacher.certificateImage1.startsWith('/api/uploads/teacher-certificates/')) {
-                const filename = teacher.certificateImage1.replace('/api/uploads/teacher-certificates/', '');
-                const filePath = path.join(__dirname, '..', 'uploads', 'teacher-certificates', filename);
+            // Delete certificate files if exist - banners.js style
+            if (teacher.certificateImage1 && teacher.certificateImage1.startsWith('/api/uploads/')) {
+                const filename = teacher.certificateImage1.replace('/api/uploads/', '');
+                const filePath = path.join(__dirname, '..', 'uploads', filename);
                 if (fs.existsSync(filePath)) {
                     fs.unlinkSync(filePath);
                 }
             }
 
-            if (teacher.certificateImage2 && teacher.certificateImage2.startsWith('/api/uploads/teacher-certificates/')) {
-                const filename = teacher.certificateImage2.replace('/api/uploads/teacher-certificates/', '');
-                const filePath = path.join(__dirname, '..', 'uploads', 'teacher-certificates', filename);
+            if (teacher.certificateImage2 && teacher.certificateImage2.startsWith('/api/uploads/')) {
+                const filename = teacher.certificateImage2.replace('/api/uploads/', '');
+                const filePath = path.join(__dirname, '..', 'uploads', filename);
                 if (fs.existsSync(filePath)) {
                     fs.unlinkSync(filePath);
                 }
@@ -635,12 +620,12 @@ module.exports = (teachersListCollection) => {
             console.error('Error deleting teacher:', error);
             res.status(500).json({
                 success: false,
-                message: 'Failed to delete teacher/staff'
+                message: 'Failed to delete teacher/staff',
+                error: error.message
             });
         }
     });
 
-    // ... keep the existing search, filter, and other routes as they are
     // GET teachers by staff type
     router.get('/type/:staffType', async (req, res) => {
         try {
@@ -658,7 +643,8 @@ module.exports = (teachersListCollection) => {
             console.error('Error fetching teachers by staff type:', error);
             res.status(500).json({
                 success: false,
-                message: 'Failed to fetch teachers by staff type'
+                message: 'Failed to fetch teachers by staff type',
+                error: error.message
             });
         }
     });
@@ -680,7 +666,8 @@ module.exports = (teachersListCollection) => {
             console.error('Error fetching teachers by position:', error);
             res.status(500).json({
                 success: false,
-                message: 'Failed to fetch teachers by position'
+                message: 'Failed to fetch teachers by position',
+                error: error.message
             });
         }
     });
@@ -733,7 +720,8 @@ module.exports = (teachersListCollection) => {
             console.error('Error searching teachers:', error);
             res.status(500).json({
                 success: false,
-                message: 'Failed to search teachers'
+                message: 'Failed to search teachers',
+                error: error.message
             });
         }
     });
@@ -775,7 +763,8 @@ module.exports = (teachersListCollection) => {
             console.error('Error toggling teacher status:', error);
             res.status(500).json({
                 success: false,
-                message: 'Failed to toggle teacher status'
+                message: 'Failed to toggle teacher status',
+                error: error.message
             });
         }
     });
@@ -800,7 +789,8 @@ module.exports = (teachersListCollection) => {
             console.error('Error fetching teachers with shifts:', error);
             res.status(500).json({
                 success: false,
-                message: 'Failed to fetch teachers with shifts'
+                message: 'Failed to fetch teachers with shifts',
+                error: error.message
             });
         }
     });

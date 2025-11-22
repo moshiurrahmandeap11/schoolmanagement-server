@@ -51,6 +51,37 @@ module.exports = (studentsCollection) => {
     }
   });
 
+  // GET student by studentId (NOT _id)
+router.get('/student/:studentId', async (req, res) => {
+  try {
+    const { studentId } = req.params;
+
+    const student = await studentsCollection.findOne({ studentId });
+
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: 'এই studentId দিয়ে কোনো শিক্ষার্থী পাওয়া যায়নি'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: student
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'শিক্ষার্থীর তথ্য লোড করতে সমস্যা',
+      error: error.message
+    });
+  }
+});
+
+
+
+
 // CREATE new student
 router.post('/', upload.single('photo'), async (req, res) => {
   try {
@@ -169,6 +200,68 @@ router.post('/', upload.single('photo'), async (req, res) => {
       error: error.message
     });
   }
+});
+
+// ফাইনাল ওয়ার্কিং রাউট — এটা কপি করে পেস্ট করো
+router.patch('/student/:studentId/results', async (req, res) => {
+    try {
+        const { studentId } = req.params;
+        const { fullResult } = req.body;
+
+        if (!fullResult) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'রেজাল্টের ডাটা পাঠানো হয়নি' 
+            });
+        }
+
+        // শিক্ষার্থী আছে কিনা চেক
+        const student = await studentsCollection.findOne({ studentId });
+        if (!student) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'শিক্ষার্থী পাওয়া যায়নি' 
+            });
+        }
+
+        // ডুপ্লিকেট চেক (যদি একই পরীক্ষার রেজাল্ট আবার না যোগ হয়)
+        const alreadyExists = student.results?.some(r => 
+            r.examCategoryId === fullResult.examCategoryId
+        );
+
+        if (alreadyExists) {
+            return res.status(400).json({
+                success: false,
+                message: 'এই পরীক্ষার রেজাল্ট ইতিমধ্যে যোগ করা হয়েছে'
+            });
+        }
+
+        // পুরো রেজাল্ট অবজেক্ট পুশ করা হচ্ছে
+        const updateResult = await studentsCollection.updateOne(
+            { studentId },
+            { 
+                $push: { results: fullResult },
+                $set: { updatedAt: new Date() }
+            }
+        );
+
+        if (updateResult.matchedCount === 0) {
+            return res.status(404).json({ success: false, message: 'আপডেট করা যায়নি' });
+        }
+
+        res.json({ 
+            success: true, 
+            message: 'রেজাল্ট সফলভাবে যোগ হয়েছে' 
+        });
+
+    } catch (error) {
+        console.error('Error adding full result:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'সার্ভারে সমস্যা হয়েছে',
+            error: error.message 
+        });
+    }
 });
 
   // UPDATE student

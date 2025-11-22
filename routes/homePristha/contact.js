@@ -45,10 +45,10 @@ module.exports = (contactCollection) => {
             }
 
             if (!mobile || !mobile.trim()) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'মোবাইল নম্বর প্রয়োজন'
-                });
+return res.status(400).json({
+  success: false,
+  message: 'মোবাইল নম্বর সঠিক নয়! (+880 অথবা 01 দিয়ে ১১ ডিজিট হতে হবে)'
+});
             }
 
             // Mobile number validation
